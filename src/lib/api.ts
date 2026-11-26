@@ -1,0 +1,79 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+export type User = { id: number; email: string; name: string; role: "USER" | "ADMIN" };
+export type EventItem = {
+  id: number; title: string; venue: string; category: string; startsAt: string;
+  priceCents: number; totalSeats: number; availableSeats: number;
+};
+export type Seat = { id: number; row: string; number: number; status: "AVAILABLE" | "BOOKED" };
+export type Booking = {
+  id: number; eventId: number; eventTitle: string; venue: string; startsAt: string;
+  totalCents: number; createdAt: string; seats: string[];
+};
+type Session = { token: string; user: User };
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+
+// shortcut: token in localStorage is readable by any XSS on this origin; move to an httpOnly cookie for production
+const KEY = "seatlock.session";
+const listeners = new Set<() => void>();
+let cached: { raw: string | null; value: Session | null } = { raw: null, value: null };
+
+function readSession(): Session | null {
+  let raw: string | null = null;
+  try { raw = localStorage.getItem(KEY); } catch { /* storage blocked */ }
+  if (raw !== cached.raw) cached = { raw, value: raw ? (JSON.parse(raw) as Session) : null };
+  return cached.value;
+}
+
+export function setSession(s: Session | null) {
+  try { if (s) localStorage.setItem(KEY, JSON.stringify(s)); else localStorage.removeItem(KEY); } catch { /* ignore */ }
+  listeners.forEach((l) => l());
+}
+
+export function useSession(): Session | null {
+  return useSyncExternalStore(
+    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
+    readSession,
+    () => null,
+  );
+}
+
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const session = readSession();
+  const headers = new Headers(init.headers);
+  if (init.body) headers.set("Content-Type", "application/json");
+  if (session) headers.set("Authorization", `Bearer ${session.token}`);
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
+  } catch {
+    throw new ApiError(0, "Can't reach the server. Is the backend running on " + API_URL + "?");
+  }
+  if (res.status === 401 && session) setSession(null); // expired token
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(res.status, body?.detail ?? body?.title ?? `Request failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export const inr = (paise: number) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(paise / 100);
+
+export const when = (iso: string, opts: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", ...opts }).format(new Date(iso));
+
+export const categoryStyle: Record<string, { gradient: string; emoji: string }> = {
+  Concert: { gradient: "from-fuchsia-600 via-violet-600 to-indigo-700", emoji: "🎧" },
+  Comedy: { gradient: "from-amber-500 via-orange-500 to-rose-600", emoji: "🎤" },
+  Movie: { gradient: "from-sky-500 via-cyan-600 to-teal-700", emoji: "🎬" },
+  Tech: { gradient: "from-emerald-500 via-teal-600 to-slate-700", emoji: "💻" },
+};
+export const styleFor = (c: string) => categoryStyle[c] ?? { gradient: "from-slate-500 to-slate-800", emoji: "🎟️" };
