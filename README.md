@@ -77,7 +77,7 @@ Styling is built on a three-layer token architecture in [`src/styles/tokens.css`
 
 | Layer | Example | Rule |
 |---|---|---|
-| **Primitive** | `--ink-100`, `--cobalt-600`, `--radius-md` | Raw values. Never used by components directly. |
+| **Primitive** | `--sand-100`, `--vermilion-600`, `--radius-md` | Raw values. Never used by components directly. |
 | **Semantic** | `--sl-surface`, `--sl-text-muted`, `--sl-accent`, `--sl-warning` | What a value is *for*. Re-pointed for dark mode, so themes only touch this layer. |
 | **Component** | `--seat-held-bg`, `--button-primary-bg`, `--card-radius` | Per-component decisions, built only from semantic tokens. |
 
