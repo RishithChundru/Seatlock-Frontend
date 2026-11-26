@@ -2,6 +2,8 @@
 
 import { useSyncExternalStore } from "react";
 
+// Direct backend URL, only for the SSE stream (EventSource). Every other call goes to same-origin /api/*,
+// which next.config.ts proxies to the backend, so the httpOnly auth cookies belong to this site.
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export type User = { id: number; email: string; name: string; role: "USER" | "ADMIN" };
@@ -37,54 +39,92 @@ export type WaitlistItem = {
   eventId: number; eventTitle: string; startsAt: string;
   position: number | null; offeredSeat: string | null; offerExpiresAt: string | null;
 };
-type Session = { token: string; user: User };
+// Both tokens live in httpOnly cookies set by the API; JavaScript never sees them. Only the public
+// profile (name, role) is kept here so the UI can render instantly; /api/auth/session re-checks it on load.
+type Session = { user: User };
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-// shortcut: token in localStorage is readable by any XSS on this origin; move to an httpOnly cookie for production
-const KEY = "seatlock.session";
+const KEY = "seatlock.user";
 const listeners = new Set<() => void>();
 let cached: { raw: string | null; value: Session | null } = { raw: null, value: null };
+let synced = false;
 
 function readSession(): Session | null {
   let raw: string | null = null;
   try { raw = localStorage.getItem(KEY); } catch { /* storage blocked */ }
-  if (raw !== cached.raw) cached = { raw, value: raw ? (JSON.parse(raw) as Session) : null };
+  if (raw !== cached.raw) cached = { raw, value: raw ? { user: JSON.parse(raw) as User } : null };
   return cached.value;
 }
 
 export function setSession(s: Session | null) {
-  try { if (s) localStorage.setItem(KEY, JSON.stringify(s)); else localStorage.removeItem(KEY); } catch { /* ignore */ }
+  try { if (s) localStorage.setItem(KEY, JSON.stringify(s.user)); else localStorage.removeItem(KEY); } catch { /* ignore */ }
   listeners.forEach((l) => l());
+}
+
+/** Once per page load: drop a stale profile (cookies expired or revoked) or pick up a fresh one. */
+function syncSession() {
+  if (synced) return;
+  synced = true;
+  try { localStorage.removeItem("seatlock.session"); } catch { /* old token-in-storage format */ }
+  fetch("/api/auth/session", { cache: "no-store", headers: { "X-Requested-With": "fetch" } })
+    .then((r) => (r.ok ? r.json() : r.status === 401 ? null : undefined))
+    .then((u: User | null | undefined) => { if (u !== undefined) setSession(u ? { user: u } : null); })
+    .catch(() => { /* offline: keep what we have */ });
 }
 
 export function useSession(): Session | null {
   return useSyncExternalStore(
-    (cb) => { listeners.add(cb); return () => listeners.delete(cb); },
+    (cb) => { listeners.add(cb); syncSession(); return () => listeners.delete(cb); },
     readSession,
     () => null,
   );
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const session = readSession();
+// Single-flight: many requests failing with 401 at once share one refresh call.
+let refreshing: Promise<boolean> | null = null;
+function refresh(): Promise<boolean> {
+  refreshing ??= fetch("/api/auth/refresh", { method: "POST", headers: { "X-Requested-With": "fetch" } })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => { refreshing = null; });
+  return refreshing;
+}
+
+function send(path: string, init: RequestInit) {
   const headers = new Headers(init.headers);
   if (typeof init.body === "string") headers.set("Content-Type", "application/json"); // FormData sets its own boundary
-  if (session) headers.set("Authorization", `Bearer ${session.token}`);
+  headers.set("X-Requested-With", "fetch"); // the API's CSRF check for cookie-authenticated writes
+  return fetch(path, { ...init, headers, cache: "no-store", credentials: "same-origin" });
+}
+
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
+    res = await send(path, init);
+    // Access cookie expired: refresh once, then retry. A failed refresh may just mean another tab rotated
+    // the cookies a moment earlier (they share the jar), so the retry still gets a chance.
+    if (res.status === 401 && !path.startsWith("/api/auth/") && readSession()) {
+      if (!(await refresh())) await new Promise((r) => setTimeout(r, 400));
+      res = await send(path, init);
+      if (res.status === 401) setSession(null);
+    }
   } catch {
-    throw new ApiError(0, "Can't reach the server. Is the backend running on " + API_URL + "?");
+    throw new ApiError(0, "Can't reach the server. Please try again in a moment.");
   }
-  if (res.status === 401 && session) setSession(null); // expired token
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new ApiError(res.status, body?.detail ?? body?.title ?? `Request failed (${res.status})`);
   }
   return (res.status === 204 ? undefined : res.json()) as Promise<T>;
+}
+
+/** Ends the session on the server (revokes the refresh token, clears both cookies), then locally. */
+export async function signOut() {
+  await send("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+  setSession(null);
 }
 
 export const inr = (paise: number) =>
@@ -95,4 +135,5 @@ export const when = (iso: string, opts: Intl.DateTimeFormatOptions) =>
 
 export const CATEGORIES = ["Concert", "Comedy", "Movie", "Theatre", "Sports", "Tech"] as const;
 
-export const imageSrc = (e: { imageUrl: string | null }) => (e.imageUrl ? `${API_URL}${e.imageUrl}` : null);
+// Absolute (object storage / CDN) or same-origin /api/... (Postgres-stored covers, via the proxy).
+export const imageSrc = (e: { imageUrl: string | null }) => e.imageUrl;

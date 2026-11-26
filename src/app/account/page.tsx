@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { api, setSession, useSession } from "@/lib/api";
+import { api, signOut, useSession } from "@/lib/api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { PasswordField } from "@/components/ui/Field";
@@ -61,7 +61,7 @@ export default function AccountPage() {
         </dl>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button href="/bookings" variant="secondary">Your tickets</Button>
-          <Button variant="ghost" onClick={() => { setSession(null); router.replace("/"); }}>Sign out</Button>
+          <Button variant="ghost" onClick={async () => { await signOut(); router.replace("/"); }}>Sign out</Button>
         </div>
       </section>
 

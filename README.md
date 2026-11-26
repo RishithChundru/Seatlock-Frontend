@@ -22,6 +22,8 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Cancel bookings** from Tickets (with a confirmation dialog); cancelled tickets show as refunded
 - Every checkout sends an `Idempotency-Key`, so a double-click or network retry never books twice
 - Tickets page shows "Issuing…" until the backend's RabbitMQ consumer issues the ticket code, plus your waitlists and any seat held for you
+- **Cookie sessions:** both tokens are httpOnly cookies set by the API, so JavaScript never touches a token. Calls go to same-origin `/api/*`, which Next proxies to the backend; an expired access token is refreshed once (shared by all in-flight requests) and the request retried
+- **Route guard** ([`src/proxy.ts`](src/proxy.ts)): `/bookings`, `/account` and `/admin` redirect to sign-in without a session, and `/admin` sends non-admins home
 - Sign in / sign up with a show/hide password toggle; switching between them starts from a blank form
 - Admin page: create events and upload cover photos (JPEG/PNG/WebP, 2 MB max)
 - Light and dark themes (follows the system, with a toggle), keyboard focus rings, mobile layout
@@ -52,13 +54,14 @@ npm install
 cp .env.example .env.local    # Windows PowerShell: Copy-Item .env.example .env.local
 ```
 
-`.env.local` (git-ignored) contains one setting:
+`.env.local` (git-ignored):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8080` | Base URL of the Seatlock API, no trailing slash |
+| `API_ORIGIN` | `NEXT_PUBLIC_API_URL` | Where `/api/*` is proxied (and the route guard checks the session), no trailing slash |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8080` | The API URL the browser uses directly, only for the live seat-map stream |
 
-It's baked in at build time, so restart `npm run dev` (or redeploy) after changing it.
+Both are read at build time, so restart `npm run dev` (or redeploy) after changing it.
 
 ### 3. Run
 
@@ -111,7 +114,9 @@ Type: Fraunces (display), Geist (UI), Geist Mono (seat labels, ticket codes).
 | `src/components/TicketQr.tsx` | QR code for a ticket |
 | `src/styles/tokens.css` | Design tokens |
 | `src/components/ui/*` | Component library |
-| `src/lib/api.ts` | API client, session store, formatters |
+| `src/lib/api.ts` | API client (cookie auth, refresh-and-retry), session store, formatters |
+| `src/proxy.ts` | Route guard for signed-in and admin pages |
+| `next.config.ts` | `/api/*` proxy to the backend |
 
 ---
 
@@ -119,7 +124,7 @@ Type: Fraunces (display), Geist (UI), Geist Mono (seat labels, ticket codes).
 
 - Work on **`dev`**; merge to **`main`** through a pull request.
 - GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs lint and a production build on every push to `dev`/`main` and on PRs.
-- **Vercel** deploys `main` to production and gives every branch/PR a preview URL. To deploy your own copy: import the repo in Vercel, set `NEXT_PUBLIC_API_URL` to your deployed API, and deploy. Then add your Vercel URL to the API's `CORS_ORIGINS`.
+- **Vercel** deploys `main` to production and gives every branch/PR a preview URL. To deploy your own copy: import the repo in Vercel, set `API_ORIGIN` and `NEXT_PUBLIC_API_URL` to your deployed API, and deploy. Then add your Vercel URL to the API's `CORS_ORIGINS`.
 
 The full-stack walkthrough (Neon, Upstash, CloudAMQP, Render, Vercel) is in the backend's [DEPLOY.md](https://github.com/RishithChundru/Seatlock-Backend/blob/main/DEPLOY.md).
 
@@ -127,7 +132,9 @@ The full-stack walkthrough (Neon, Upstash, CloudAMQP, Render, Vercel) is in the 
 
 | Symptom | Fix |
 |---|---|
-| "Can't reach the server" | The API isn't running at `NEXT_PUBLIC_API_URL`, or this site's URL is missing from the API's `CORS_ORIGINS` |
+| "Can't reach the server" | The API isn't running at `API_ORIGIN` |
+| Signed in, but bounced back to sign-in | The API has `COOKIE_SECURE=true` while you're on `http://`; it must be `false` locally |
+| Live seat map doesn't update | `NEXT_PUBLIC_API_URL` is wrong, or this site's URL is missing from the API's `CORS_ORIGINS` |
 | First load is slow on the deployed site | Free hosting puts the API to sleep when idle; the first request wakes it (~30–60 s) |
-| Changed `NEXT_PUBLIC_API_URL` but nothing changed | Restart `npm run dev`, or redeploy on Vercel |
+| Changed `API_ORIGIN` / `NEXT_PUBLIC_API_URL` but nothing changed | Restart `npm run dev`, or redeploy on Vercel |
 | No **Admin** link after signing in | You're signed in as a customer; sign in with the backend's `ADMIN_EMAIL` account |

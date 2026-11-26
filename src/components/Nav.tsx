@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { setSession, useSession } from "@/lib/api";
+import { signOut as endSession, useSession } from "@/lib/api";
 import ThemeToggle from "./ThemeToggle";
 import Button from "./ui/Button";
 
@@ -11,8 +11,8 @@ export default function Nav() {
   const path = usePathname();
   const router = useRouter();
   // Leave whatever page you were on (admin, tickets, account) instead of showing its signed-out state.
-  const signOut = () => {
-    setSession(null);
+  const signOut = async () => {
+    await endSession();
     router.replace("/");
   };
 

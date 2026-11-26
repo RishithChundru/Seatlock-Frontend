@@ -1,0 +1,32 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+const BACKEND = (process.env.API_ORIGIN ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace(/\/+$/, "");
+
+/**
+ * Route guard (optimistic check, the API still authorizes every call):
+ * no session cookie -> /login?next=...; /admin for non-admins -> home.
+ */
+export async function proxy(req: NextRequest) {
+  const refresh = req.cookies.get("sl_refresh")?.value;
+  if (!refresh) {
+    const login = new URL("/login", req.url);
+    login.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
+    return NextResponse.redirect(login);
+  }
+  if (req.nextUrl.pathname.startsWith("/admin")) {
+    try {
+      const res = await fetch(`${BACKEND}/api/auth/session`, {
+        headers: { cookie: `sl_refresh=${refresh}` },
+        cache: "no-store",
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.status === 401) return NextResponse.redirect(new URL("/login?next=/admin", req.url));
+      if (res.ok && (await res.json()).role !== "ADMIN") return NextResponse.redirect(new URL("/", req.url));
+    } catch {
+      // Backend slow (cold start) or down: let the page load; it checks the role and the API enforces it.
+    }
+  }
+  return NextResponse.next();
+}
+
+export const config = { matcher: ["/bookings/:path*", "/account/:path*", "/admin/:path*"] };
