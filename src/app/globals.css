@@ -101,6 +101,13 @@ body {
 
 dialog::backdrop { background: var(--sl-overlay); }
 
+/* QR scanner: a line sweeping the viewfinder so it reads as "live" */
+@keyframes scan-sweep {
+  0%, 100% { top: 8%; opacity: 0.4; }
+  50% { top: 92%; opacity: 1; }
+}
+.scan-line { top: 8%; animation: scan-sweep 2.4s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }

@@ -136,7 +136,7 @@ export default function CheckInPage() {
           <option value="">Any event</option>
           {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
         </SelectField>
-        <Field label="Ticket code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
+        <Field label="Ticket code" name="code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
           placeholder="SL-XXXXXXXX" autoComplete="off" spellCheck={false} className="font-mono" />
         <div className="flex gap-3">
           <Button type="submit" className="flex-1" disabled={busy || !code.trim()}>{busy ? "Checking…" : "Check in"}</Button>
@@ -155,25 +155,56 @@ export default function CheckInPage() {
         onKeyDown={(e) => { if (e.key === "Escape") stopScan(); }}
       >
         <video ref={video} muted playsInline className="h-full w-full object-cover" aria-label="Camera preview" />
-        {/* Viewfinder: dims everything outside the square */}
+
+        {/* Viewfinder: everything outside the square is darkened; corner brackets mark the read area */}
         <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
-          <div ref={square} className="aspect-square w-[70vmin] max-w-80 rounded-2xl border-[3px] border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.45)]" />
+          <div ref={square} className="relative aspect-square w-[68vmin] max-w-80 rounded-2xl shadow-[0_0_0_9999px_rgb(0_0_0/0.6)]">
+            {["left-0 top-0 border-l-4 border-t-4 rounded-tl-2xl", "right-0 top-0 border-r-4 border-t-4 rounded-tr-2xl",
+              "left-0 bottom-0 border-l-4 border-b-4 rounded-bl-2xl", "right-0 bottom-0 border-r-4 border-b-4 rounded-br-2xl"].map((c) => (
+              <span key={c} className={`absolute h-10 w-10 border-white ${c}`} />
+            ))}
+            <span className="scan-line absolute inset-x-4 h-0.5 rounded-full bg-[var(--vermilion-400)] shadow-[0_0_12px_var(--vermilion-400)]" />
+          </div>
         </div>
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] text-white">
-          <span className="text-sm font-medium">Scan ticket</span>
+
+        {/* Top bar: solid, so the title and close button stay readable on any camera image */}
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-black/75 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white backdrop-blur-sm">
+          <div>
+            <p className="font-display text-lg font-semibold leading-tight">Scan ticket</p>
+            <p className="text-xs text-white/70">{eventId ? events.find((e) => String(e.id) === eventId)?.title : "Any event"}</p>
+          </div>
           <button
             type="button"
             onClick={stopScan}
             autoFocus
             aria-label="Close scanner"
-            className="grid h-11 w-11 place-items-center rounded-full bg-white/15 backdrop-blur transition-colors hover:bg-white/25"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white text-neutral-900 shadow-lg transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
-            <XIcon className="h-5 w-5" />
+            <XIcon className="h-5 w-5" strokeWidth={2.5} />
           </button>
         </div>
-        <p className="absolute inset-x-0 bottom-0 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-sm text-white" aria-live="polite">
-          Fit the ticket&apos;s QR code inside the square. Only codes inside it are read.
-        </p>
+
+        {/* Bottom panel: instruction plus explicit ways out */}
+        <div className="absolute inset-x-0 bottom-0 bg-black/75 px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-center text-white backdrop-blur-sm">
+          <p className="text-[15px] font-medium" aria-live="polite">Fit the QR code inside the square</p>
+          <p className="mt-1 text-xs text-white/70">Codes outside the square are ignored.</p>
+          <div className="mx-auto mt-4 grid max-w-sm grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => { stopScan(); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('input[name="code"]')?.focus()); }}
+              className="h-11 rounded-[var(--button-radius)] border border-white/40 text-sm font-medium transition-colors hover:bg-white/10"
+            >
+              Type code instead
+            </button>
+            <button
+              type="button"
+              onClick={stopScan}
+              className="h-11 rounded-[var(--button-radius)] bg-white text-sm font-semibold text-neutral-900 transition-colors hover:bg-white/90"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
 
       {outcome && (
