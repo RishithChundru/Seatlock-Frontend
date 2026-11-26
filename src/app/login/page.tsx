@@ -4,12 +4,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 import { api, setSession, User } from "@/lib/api";
 import Button from "@/components/ui/Button";
-import { Field } from "@/components/ui/Field";
+import { Field, PasswordField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
 
 export default function LoginPage() {
   return <Suspense><LoginForm /></Suspense>;
 }
+
+const EMPTY = { name: "", email: "", password: "" };
 
 function LoginForm() {
   const router = useRouter();
@@ -17,10 +19,16 @@ function LoginForm() {
   const rawNext = params.get("next") ?? "/";
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/"; // no open redirects
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
+  // Switching between sign in and sign up starts from a blank form; nothing typed carries over.
+  const switchMode = () => {
+    setMode(mode === "login" ? "register" : "login");
+    setForm(EMPTY);
+    setError(null);
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -56,17 +64,18 @@ function LoginForm() {
         <h1 className="font-display text-2xl font-semibold">{mode === "login" ? "Sign in" : "Create an account"}</h1>
         <p className="mt-1 text-sm text-muted">
           {mode === "login" ? "New here? " : "Already have an account? "}
-          <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }} className="font-medium text-accent-fg underline-offset-4 hover:underline">
+          <button type="button" onClick={switchMode} className="font-medium text-accent-fg underline-offset-4 hover:underline">
             {mode === "login" ? "Create an account" : "Sign in"}
           </button>
         </p>
 
-        <form onSubmit={submit} className="mt-6 space-y-4">
+        {/* key={mode}: fresh inputs per mode, so browser-filled values don't follow you across */}
+        <form key={mode} onSubmit={submit} className="mt-6 space-y-4">
           {error && <Alert>{error}</Alert>}
           {mode === "register" && <Field label="Name" required autoComplete="name" value={form.name} onChange={set("name")} />}
           <Field label="Email" type="email" required autoComplete="email" value={form.email} onChange={set("email")} />
-          <Field
-            label="Password" type="password" required minLength={mode === "register" ? 8 : undefined}
+          <PasswordField
+            label="Password" required minLength={mode === "register" ? 8 : undefined}
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             hint={mode === "register" ? "At least 8 characters." : undefined}
             value={form.password} onChange={set("password")}
@@ -75,14 +84,6 @@ function LoginForm() {
             {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
           </Button>
         </form>
-
-        {mode === "login" && (
-          <div className="mt-5 border-t border-line pt-5">
-            <Button variant="secondary" className="w-full" onClick={() => setForm({ name: "", email: "demo@seatlock.dev", password: "Demo@12345" })}>
-              Fill in demo account
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
