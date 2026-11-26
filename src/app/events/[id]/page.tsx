@@ -3,11 +3,16 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, Booking, EventItem, Hold, inr, Seat, styleFor, useSession, when } from "@/lib/api";
-import ErrorBox from "@/components/ErrorBox";
+import { api, ApiError, Booking, EventItem, Hold, inr, Seat, useSession, when } from "@/lib/api";
+import EventCover from "@/components/EventCover";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import { Alert, Skeleton, Toast } from "@/components/ui/Feedback";
+import { ArrowLeftIcon, CalendarIcon, CheckIcon, ClockIcon, PinIcon, XIcon } from "@/components/ui/Icons";
 
 const MAX_SEATS = 10;
 const POLL_MS = 4000;
+const HOLD_SECONDS = 300;
 
 export default function EventPage() {
   return <Suspense><EventView /></Suspense>;
@@ -29,7 +34,9 @@ function EventView() {
   const idemKey = useRef<string | null>(null);
   // Seats we believe we hold, to notice when the server says a hold expired.
   const mine = useRef<Set<number>>(new Set());
+  const dialog = useRef<HTMLDialogElement>(null);
   const loginUrl = `/login?next=/events/${id}`;
+  const clearToast = useCallback(() => setToast(null), []);
 
   const load = useCallback(async () => {
     try {
@@ -61,10 +68,8 @@ function EventView() {
   }, [holdUntil]);
 
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
+    if (done) dialog.current?.showModal();
+  }, [done]);
 
   const rows = useMemo(() => {
     const m = new Map<string, Seat[]>();
@@ -94,6 +99,7 @@ function EventView() {
     try {
       const h = await api<Hold>("/api/holds", { method: "POST", body: JSON.stringify({ eventId: Number(id), seatIds: [s.id] }) });
       const exp = Date.parse(h.expiresAt);
+      setNow(exp - HOLD_SECONDS * 1000); // the hold just started; the 1s ticker takes over from here
       setHoldUntil((u) => (u === null ? exp : Math.min(u, exp)));
     } catch (e) {
       mine.current.delete(s.id);
@@ -127,163 +133,174 @@ function EventView() {
     }
   };
 
+  if (error && !event) return <div className="pt-10"><Alert>{error}</Alert></div>;
+  if (!event) {
+    return (
+      <div className="grid gap-8 pt-10 md:grid-cols-2">
+        <Skeleton className="aspect-[16/10]" />
+        <div className="space-y-4"><Skeleton className="h-8 w-2/3" /><Skeleton className="h-5 w-1/2" /><Skeleton className="h-24" /></div>
+      </div>
+    );
+  }
+
   const secondsLeft = holdUntil === null ? null : Math.max(0, Math.round((holdUntil - now) / 1000));
-
-  if (error && !event) return <div className="pt-10"><ErrorBox message={error} /></div>;
-  if (!event) return <div className="mt-10 h-96 animate-pulse rounded-3xl bg-white/5" />;
-
-  const style = styleFor(event.category);
   const total = selected.length * event.priceCents;
 
   return (
-    <div className="pt-8">
-      <Link href="/" className="text-sm text-white/50 hover:text-white">← All events</Link>
+    <div className="pt-6">
+      <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
+        <ArrowLeftIcon /> All events
+      </Link>
 
-      <header className={`mt-4 overflow-hidden rounded-3xl bg-gradient-to-br ${style.gradient} p-6 sm:p-8`}>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <span className="rounded-full bg-black/25 px-2.5 py-1 text-xs">{event.category}</span>
-            <h1 className="mt-3 font-display text-3xl font-bold sm:text-4xl">{event.title}</h1>
-            <p className="mt-1 text-white/80">
-              {event.venue} · {when(event.startsAt, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" })}
-            </p>
-          </div>
-          <div className="rounded-2xl bg-black/25 px-4 py-3 text-right backdrop-blur">
-            <div className="text-xs text-white/70">Per seat</div>
-            <div className="font-display text-2xl font-bold">{inr(event.priceCents)}</div>
+      {/* Hero */}
+      <header className="mt-5 grid gap-6 md:grid-cols-[1.25fr_1fr] md:gap-10">
+        <div className="aspect-[16/10] overflow-hidden rounded-[var(--card-radius)] border border-line">
+          <EventCover event={event} sizes="lg" />
+        </div>
+        <div className="flex flex-col">
+          <Badge className="self-start">{event.category}</Badge>
+          <h1 className="mt-4 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-[2.75rem]">{event.title}</h1>
+          <dl className="mt-5 space-y-2.5 text-[15px]">
+            <div className="flex items-center gap-2.5"><dt className="sr-only">Date</dt><CalendarIcon className="text-subtle" />
+              <dd className="tabular">{when(event.startsAt, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" })}</dd></div>
+            <div className="flex items-center gap-2.5"><dt className="sr-only">Venue</dt><PinIcon className="text-subtle" /><dd>{event.venue}</dd></div>
+          </dl>
+          {event.description && <p className="mt-5 leading-relaxed text-muted">{event.description}</p>}
+          <div className="mt-auto flex items-baseline gap-2 border-t border-line pt-5 max-md:mt-6">
+            <span className="font-display text-3xl font-semibold tabular">{inr(event.priceCents)}</span>
+            <span className="text-sm text-subtle">per seat · {event.availableSeats} of {event.totalSeats} available</span>
           </div>
         </div>
       </header>
 
-      {error && <div className="mt-4"><ErrorBox message={error} /></div>}
+      {error && <div className="mt-6"><Alert>{error}</Alert></div>}
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
-        <section aria-label="Seat map" className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-8">
-          <div className="stage mx-auto mb-2 h-10 w-4/5 bg-gradient-to-b from-white/40 to-white/0" />
-          <p className="mb-8 text-center text-[11px] uppercase tracking-[0.3em] text-white/40">Stage</p>
+      <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_340px] lg:gap-8">
+        {/* Seat map */}
+        <section aria-labelledby="seats-h" className="min-w-0 rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-[var(--card-shadow)] sm:p-8">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 id="seats-h" className="font-display text-xl font-semibold">Choose your seats</h2>
+            <p className="flex items-center gap-1.5 text-xs text-subtle">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-50" /><span className="relative inline-flex h-2 w-2 rounded-full bg-success" /></span>
+              Live availability
+            </p>
+          </div>
 
-          <div className="overflow-x-auto pb-2">
-            <div className="mx-auto flex w-max flex-col gap-2">
+          <div className="mx-auto mt-8 max-w-md" aria-hidden>
+            <div className="h-2 rounded-t-[100%] border-x border-t border-line-strong" />
+            <p className="eyebrow mt-1 text-center">Stage</p>
+          </div>
+
+          <div className="mt-6 overflow-x-auto pb-2">
+            <div className="mx-auto flex w-max flex-col gap-[var(--seat-gap)]">
               {rows.map(([row, list]) => (
-                <div key={row} className="flex items-center gap-1.5">
-                  <span className="w-5 text-center font-mono text-xs text-white/40">{row}</span>
+                <div key={row} className="flex items-center gap-[var(--seat-gap)]">
+                  <span className="w-6 text-center font-mono text-xs text-subtle">{row}</span>
                   {list.map((s, i) => {
-                    const aisle = i === Math.floor(list.length / 2);
                     const heldByOther = s.status === "HELD" && !s.mine;
-                    const label = s.status === "BOOKED" ? "booked" : s.mine ? "held by you" : heldByOther ? "held by another customer" : "available";
+                    const state = s.status === "BOOKED" ? "booked" : s.mine ? "mine" : heldByOther ? "held" : "available";
+                    const label = { booked: "booked", mine: "held by you", held: "in another customer's cart", available: "available" }[state];
                     return (
                       <button
                         key={s.id}
                         onClick={() => toggle(s)}
-                        disabled={s.status === "BOOKED" || heldByOther}
+                        disabled={state === "booked" || state === "held"}
                         aria-pressed={s.mine}
                         aria-label={`Seat ${s.row}${s.number}, ${label}`}
-                        title={heldByOther ? "Someone is checking out with this seat" : undefined}
-                        className={`${aisle ? "ml-4" : ""} grid h-7 w-7 place-items-center rounded-t-lg rounded-b-sm text-[10px] font-medium transition sm:h-8 sm:w-8
-                          ${s.status === "BOOKED"
-                            ? "cursor-not-allowed bg-white/5 text-white/20"
-                            : s.mine
-                              ? "pop bg-gradient-to-b from-fuchsia-400 to-violet-500 text-white shadow-lg shadow-fuchsia-500/30"
-                              : heldByOther
-                                ? "cursor-not-allowed bg-amber-400/25 text-amber-200/70"
-                                : "bg-white/15 text-white/70 hover:bg-emerald-400/70 hover:text-black"}
-                          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300`}
+                        data-state={state}
+                        className={`seat ${i === Math.floor(list.length / 2) ? "ml-4" : ""}`}
                       >
-                        {s.status === "BOOKED" ? "×" : heldByOther ? "•" : s.number}
+                        {s.number}
                       </button>
                     );
                   })}
-                  <span className="w-5 text-center font-mono text-xs text-white/40">{row}</span>
+                  <span className="w-6 text-center font-mono text-xs text-subtle">{row}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-8 flex flex-wrap justify-center gap-5 text-xs text-white/60">
-            <Legend className="bg-white/15" label="Available" />
-            <Legend className="bg-gradient-to-b from-fuchsia-400 to-violet-500" label="Held by you" />
-            <Legend className="bg-amber-400/25" label="In someone's cart" />
-            <Legend className="bg-white/5" label="Booked" />
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Live · refreshes every {POLL_MS / 1000}s
-            </span>
-          </div>
+          <ul className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 border-t border-line pt-5 text-xs text-muted">
+            {[["available", "Available"], ["mine", "Your hold"], ["held", "In someone's cart"], ["booked", "Sold"]].map(([state, label]) => (
+              <li key={state} className="flex items-center gap-2">
+                <span data-state={state} className="seat !h-4 !w-4" aria-hidden /> {label}
+              </li>
+            ))}
+          </ul>
         </section>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-            <h2 className="font-display text-lg font-semibold">Your selection</h2>
-            <p className="mt-1 text-sm text-white/50">{event.availableSeats} seats still available</p>
+        {/* Checkout */}
+        <aside aria-labelledby="summary-h" className="lg:sticky lg:top-24 lg:self-start">
+          <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
+            <h2 id="summary-h" className="font-display text-xl font-semibold">Your seats</h2>
 
-            {secondsLeft !== null && selected.length > 0 && (
-              <p role="timer" className={`mt-4 rounded-xl px-3 py-2 text-sm ${secondsLeft < 60 ? "bg-rose-500/15 text-rose-200" : "bg-emerald-500/10 text-emerald-200"}`}>
-                Seats held for you · {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}
+            {secondsLeft !== null && selected.length > 0 ? (
+              <div role="timer" aria-label="Hold time remaining" className="mt-4">
+                <div className={`flex items-center justify-between text-sm ${secondsLeft < 60 ? "text-danger" : "text-muted"}`}>
+                  <span className="inline-flex items-center gap-1.5"><ClockIcon /> Held for you</span>
+                  <span className="font-mono tabular">{Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}</span>
+                </div>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-sunken">
+                  <div className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${secondsLeft < 60 ? "bg-danger" : "bg-accent"}`} style={{ width: `${(secondsLeft / HOLD_SECONDS) * 100}%` }} />
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted">
+                {session ? "Tap seats on the map. Each one is held for you for 5 minutes." : "Sign in, then tap seats to hold them."}
               </p>
             )}
 
-            <div className="mt-5 flex min-h-12 flex-wrap gap-2">
-              {selected.length === 0 && (
-                <p className="text-sm text-white/40">{session ? "Tap seats to hold them for 5 minutes." : "Sign in, then tap seats to hold them."}</p>
-              )}
-              {selected.map((s) => (
-                <button key={s.id} onClick={() => toggle(s)} aria-label={`Release seat ${s.row}${s.number}`} className="rounded-lg bg-violet-500/20 px-2.5 py-1 font-mono text-sm text-violet-100 hover:bg-violet-500/30">
-                  {s.row}{s.number} ✕
-                </button>
-              ))}
-            </div>
+            {selected.length > 0 && (
+              <ul className="mt-5 flex flex-wrap gap-2">
+                {selected.map((s) => (
+                  <li key={s.id}>
+                    <button onClick={() => toggle(s)} aria-label={`Release seat ${s.row}${s.number}`}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line-strong pl-2.5 pr-2 font-mono text-sm transition-colors hover:border-fg">
+                      {s.row}{s.number} <XIcon className="h-3.5 w-3.5 text-subtle" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-            <div className="mt-6 flex items-baseline justify-between border-t border-white/10 pt-4">
-              <span className="text-sm text-white/60">{selected.length} × {inr(event.priceCents)}</span>
-              <span className="font-display text-2xl font-bold">{inr(total)}</span>
-            </div>
+            <dl className="mt-6 space-y-2 border-t border-line pt-4 text-sm">
+              <div className="flex justify-between text-muted"><dt>{selected.length} × {inr(event.priceCents)}</dt><dd className="tabular">{inr(total)}</dd></div>
+              <div className="flex justify-between text-muted"><dt>Booking fee</dt><dd>Free</dd></div>
+              <div className="flex items-baseline justify-between pt-2"><dt className="font-medium">Total</dt><dd className="font-display text-2xl font-semibold tabular">{inr(total)}</dd></div>
+            </dl>
 
-            <button
-              onClick={book}
-              disabled={(session !== null && selected.length === 0) || busy}
-              className="mt-5 w-full rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3.5 font-semibold text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-            >
-              {busy ? "Locking your seats…" : session ? "Book now" : "Sign in to book"}
-            </button>
-            <p className="mt-3 text-center text-xs text-white/40">Payment is simulated in this demo.</p>
+            <Button size="lg" className="mt-5 w-full" onClick={book} disabled={(session !== null && selected.length === 0) || busy}>
+              {busy ? "Confirming…" : !session ? "Sign in to book" : selected.length === 0 ? "Book seats" : `Book ${selected.length} seat${selected.length === 1 ? "" : "s"}`}
+            </Button>
+            <p className="mt-3 text-center text-xs text-subtle">Payment is simulated in this demo.</p>
           </div>
         </aside>
       </div>
 
-      {toast && (
-        <div role="status" className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-2xl border border-amber-300/30 bg-[#1a1408] px-5 py-3 text-sm text-amber-100 shadow-2xl">
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} onDone={clearToast} />
 
-      {done && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="done-title">
-          <div className="pop w-full max-w-sm rounded-3xl border border-white/10 bg-[#0f0f18] p-7 text-center">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-400/15 text-3xl">✓</div>
-            <h2 id="done-title" className="mt-4 font-display text-2xl font-bold">You&apos;re in!</h2>
-            <p className="mt-2 text-white/60">
-              Seats <span className="font-mono text-white">{done.seats.join(", ")}</span> are locked in for {done.eventTitle}.
+      <dialog
+        ref={dialog}
+        onClose={() => setDone(null)}
+        aria-labelledby="done-title"
+        className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-[var(--card-radius)] border border-line bg-surface p-0 text-fg shadow-lg"
+      >
+        {done && (
+          <div className="p-7 text-center">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-success-subtle text-success"><CheckIcon className="h-6 w-6" /></div>
+            <h2 id="done-title" className="mt-4 font-display text-2xl font-semibold">You&apos;re in</h2>
+            <p className="mt-2 text-muted">
+              <span className="font-mono text-fg">{done.seats.join(", ")}</span> for {done.eventTitle}.
             </p>
-            <p className="mt-1 text-sm text-white/40">Booking #{done.id} · {inr(done.totalCents)}</p>
-            <p className="mt-3 text-xs text-white/40">Your ticket code is being issued and emailed. It shows up in My tickets in a few seconds.</p>
-            <div className="mt-6 flex gap-3">
-              <button onClick={() => setDone(null)} className="flex-1 rounded-xl border border-white/15 py-2.5 text-sm hover:bg-white/5">
-                Book more
-              </button>
-              <Link href="/bookings" className="flex-1 rounded-xl bg-white py-2.5 text-sm font-medium text-black hover:bg-white/90">
-                View tickets
-              </Link>
+            <p className="mt-1 text-sm text-subtle tabular">Booking #{done.id} · {inr(done.totalCents)}</p>
+            <p className="mt-4 rounded-md bg-sunken px-3 py-2 text-xs text-muted">Your ticket code is being issued. It appears under Tickets in a few seconds.</p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <Button variant="secondary" onClick={() => dialog.current?.close()}>Book more</Button>
+              <Button href="/bookings">View tickets</Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </dialog>
     </div>
-  );
-}
-
-function Legend({ className, label }: { className: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={`h-3.5 w-3.5 rounded-t-md rounded-b-sm ${className}`} /> {label}
-    </span>
   );
 }

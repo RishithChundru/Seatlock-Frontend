@@ -1,38 +1,103 @@
 @import "tailwindcss";
+@import "../styles/tokens.css";
 
+/* Semantic tokens -> Tailwind utilities (bg-surface, text-muted, border-line, ...). Inline = always the live theme value. */
 @theme inline {
+  --color-bg: var(--sl-bg);
+  --color-surface: var(--sl-surface);
+  --color-sunken: var(--sl-surface-sunken);
+  --color-fg: var(--sl-text);
+  --color-muted: var(--sl-text-muted);
+  --color-subtle: var(--sl-text-subtle);
+  --color-line: var(--sl-border);
+  --color-line-strong: var(--sl-border-strong);
+  --color-accent: var(--sl-accent);
+  --color-accent-hover: var(--sl-accent-hover);
+  --color-on-accent: var(--sl-on-accent);
+  --color-accent-subtle: var(--sl-accent-subtle);
+  --color-accent-fg: var(--sl-accent-text);
+  --color-success: var(--sl-success);
+  --color-success-subtle: var(--sl-success-subtle);
+  --color-warning: var(--sl-warning);
+  --color-warning-subtle: var(--sl-warning-subtle);
+  --color-danger: var(--sl-danger);
+  --color-danger-subtle: var(--sl-danger-subtle);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-bricolage);
-}
+  --font-display: var(--font-fraunces);
 
-:root {
-  color-scheme: dark;
+  /* rounded-sm/md/lg/xl read --radius-* directly; the unlayered primitives in tokens.css override Tailwind's defaults */
+
+  --shadow-sm: var(--sl-shadow-sm);
+  --shadow-md: var(--sl-shadow-md);
+  --shadow-lg: var(--sl-shadow-lg);
 }
 
 body {
-  background: #07070c;
-  color: #e8e8f0;
+  background: var(--sl-bg);
+  color: var(--sl-text);
+  font-feature-settings: "ss01", "cv11";
 }
 
-.glow {
-  background:
-    radial-gradient(60rem 30rem at 15% -10%, rgb(139 92 246 / 0.18), transparent 60%),
-    radial-gradient(50rem 25rem at 95% 0%, rgb(236 72 153 / 0.12), transparent 60%);
+::selection {
+  background: var(--sl-accent);
+  color: var(--sl-on-accent);
 }
 
-.stage {
-  clip-path: ellipse(50% 100% at 50% 0%);
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
-@keyframes pop {
-  0% { transform: scale(0.85); }
-  60% { transform: scale(1.12); }
-  100% { transform: scale(1); }
+.tabular { font-variant-numeric: tabular-nums; }
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sl-text-subtle);
 }
-.pop { animation: pop 180ms ease-out; }
+
+/* Seat states come entirely from component tokens. */
+.seat {
+  width: var(--seat-size);
+  height: var(--seat-size);
+  border-radius: var(--seat-radius);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--seat-available-border);
+  background: var(--seat-available-bg);
+  color: var(--seat-available-fg);
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+.seat:hover:not(:disabled) { border-color: var(--seat-hover-border); color: var(--sl-text); }
+.seat[data-state="mine"] {
+  background: var(--seat-mine-bg);
+  border-color: var(--seat-mine-bg);
+  color: var(--seat-mine-fg);
+  font-weight: 600;
+}
+.seat[data-state="held"] {
+  cursor: not-allowed;
+  border-color: transparent;
+  color: transparent;
+  background: repeating-linear-gradient(135deg, var(--seat-held-bg) 0 4px, var(--seat-held-stripe) 4px 5px);
+}
+.seat[data-state="booked"] {
+  cursor: not-allowed;
+  border-color: transparent;
+  background: var(--seat-booked-bg);
+  color: transparent;
+}
+.seat:active:not(:disabled) { transform: scale(0.94); }
+
+dialog::backdrop { background: var(--sl-overlay); }
 
 @media (prefers-reduced-motion: reduce) {
-  .pop { animation: none; }
-  * { transition: none !important; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }

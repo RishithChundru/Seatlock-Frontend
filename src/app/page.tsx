@@ -1,82 +1,144 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { api, EventItem, inr, styleFor, when } from "@/lib/api";
-import ErrorBox from "@/components/ErrorBox";
+import { useEffect, useMemo, useState } from "react";
+import { api, EventItem, inr, when } from "@/lib/api";
+import EventCover from "@/components/EventCover";
+import { Alert, Skeleton } from "@/components/ui/Feedback";
+import { PinIcon } from "@/components/ui/Icons";
 
 export default function Home() {
   const [events, setEvents] = useState<EventItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [category, setCategory] = useState<string>("All");
 
   useEffect(() => {
     api<EventItem[]>("/api/events").then(setEvents).catch((e) => setError(e.message));
   }, []);
 
+  const categories = useMemo(() => ["All", ...new Set(events?.map((e) => e.category))], [events]);
+  const shown = events?.filter((e) => category === "All" || e.category === category) ?? [];
+  const [featured, ...rest] = shown;
+
   return (
     <>
-      <section className="py-14 sm:py-20">
-        <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Live seat maps · zero double-bookings
-        </p>
-        <h1 className="max-w-3xl font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
-          Grab the best seat.{" "}
-          <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-amber-200 bg-clip-text text-transparent">
-            It&apos;s yours, guaranteed.
-          </span>
+      <section className="border-b border-line pb-10 pt-12 sm:pb-14 sm:pt-20">
+        <p className="eyebrow">Now booking</p>
+        <h1 className="mt-3 max-w-3xl font-display text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+          Live events, and seats that stay yours.
         </h1>
-        <p className="mt-5 max-w-xl text-white/60">
-          Every booking is protected by optimistic locking, so when two people tap the same seat at the same moment,
-          exactly one of them gets it.
+        <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-muted">
+          Tap a seat and it&apos;s held for you for five minutes. Nobody else can take it while you check out.
         </p>
       </section>
 
-      {error && <ErrorBox message={error} />}
+      {error && <div className="mt-8"><Alert>{error}</Alert></div>}
 
-      <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {events === null && !error && Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-80 animate-pulse rounded-3xl bg-white/5" />
-        ))}
-        {events?.map((e) => <EventCard key={e.id} event={e} />)}
-      </section>
+      {events && events.length > 0 && (
+        <div role="group" aria-label="Filter by category" className="-mx-1 mt-8 flex gap-1 overflow-x-auto px-1 pb-1">
+          {categories.map((c) => (
+            <button
+              key={c}
+              aria-pressed={category === c}
+              onClick={() => setCategory(c)}
+              className={`h-9 shrink-0 rounded-full border px-4 text-sm transition-colors ${
+                category === c ? "border-fg bg-fg text-bg" : "border-line-strong text-muted hover:border-fg hover:text-fg"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {events === null && !error && (
+        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="aspect-[3/2] sm:col-span-2 lg:col-span-3 lg:aspect-[3/1]" />
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[4/5]" />)}
+        </div>
+      )}
+
+      {events?.length === 0 && (
+        <p className="mt-16 text-center text-muted">No events on sale yet. Check back soon.</p>
+      )}
+
+      {featured && <FeaturedCard event={featured} />}
+
+      {rest.length > 0 && (
+        <section aria-label="More events" className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {rest.map((e) => <EventCard key={e.id} event={e} />)}
+        </section>
+      )}
     </>
   );
 }
 
-function EventCard({ event: e }: { event: EventItem }) {
-  const s = styleFor(e.category);
+function Availability({ event: e }: { event: EventItem }) {
   const left = e.availableSeats / Math.max(1, e.totalSeats);
+  const low = left < 0.2;
+  return (
+    <div className="min-w-24">
+      <p className={`text-right text-xs tabular ${low ? "font-medium text-warning" : "text-subtle"}`}>
+        {e.availableSeats === 0 ? "Sold out" : low ? `Only ${e.availableSeats} left` : `${e.availableSeats} seats left`}
+      </p>
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-sunken" aria-hidden>
+        <div className={`h-full rounded-full ${low ? "bg-warning" : "bg-fg/70"}`} style={{ width: `${left * 100}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Meta({ event: e }: { event: EventItem }) {
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+      <span className="tabular">{when(e.startsAt, { weekday: "short", day: "numeric", month: "short" })} · {when(e.startsAt, { hour: "numeric", minute: "2-digit" })}</span>
+      <span className="inline-flex items-center gap-1"><PinIcon className="text-subtle" />{e.venue}</span>
+    </p>
+  );
+}
+
+function FeaturedCard({ event: e }: { event: EventItem }) {
   return (
     <Link
       href={`/events/${e.id}`}
-      className="group overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] transition hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-violet-400"
+      className="group mt-6 grid overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] transition-shadow hover:shadow-md md:grid-cols-[1.4fr_1fr]"
     >
-      <div className={`relative h-40 bg-gradient-to-br ${s.gradient}`}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.25),transparent_55%)]" />
-        <span className="absolute right-5 top-4 text-5xl drop-shadow-lg transition group-hover:scale-110" aria-hidden>{s.emoji}</span>
-        <span className="absolute left-4 top-4 rounded-full bg-black/30 px-2.5 py-1 text-xs font-medium backdrop-blur">{e.category}</span>
-        <div className="absolute bottom-4 left-4 rounded-xl bg-black/35 px-3 py-1.5 text-center backdrop-blur">
-          <div className="text-[10px] uppercase tracking-widest text-white/70">{when(e.startsAt, { month: "short" })}</div>
-          <div className="font-display text-2xl font-bold leading-none">{when(e.startsAt, { day: "numeric" })}</div>
+      <div className="aspect-[16/10] overflow-hidden md:aspect-auto md:min-h-80">
+        <EventCover event={e} sizes="lg" className="transition-transform duration-500 group-hover:scale-[1.02]" />
+      </div>
+      <div className="flex flex-col p-6 sm:p-8">
+        <p className="eyebrow text-accent-fg">Featured · {e.category}</p>
+        <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">{e.title}</h2>
+        <div className="mt-3"><Meta event={e} /></div>
+        {e.description && <p className="mt-4 line-clamp-3 leading-relaxed text-muted">{e.description}</p>}
+        <div className="mt-auto flex items-end justify-between gap-4 pt-8">
+          <div>
+            <p className="text-xs text-subtle">From</p>
+            <p className="font-display text-2xl font-semibold tabular">{inr(e.priceCents)}</p>
+          </div>
+          <Availability event={e} />
         </div>
       </div>
-      <div className="p-5">
-        <h2 className="font-display text-lg font-semibold leading-snug">{e.title}</h2>
-        <p className="mt-1 text-sm text-white/50">{e.venue}</p>
-        <p className="text-sm text-white/50">{when(e.startsAt, { weekday: "short", hour: "numeric", minute: "2-digit" })}</p>
-        <div className="mt-4 flex items-end justify-between">
-          <div>
-            <div className="text-xs text-white/40">from</div>
-            <div className="font-semibold">{inr(e.priceCents)}</div>
-          </div>
-          <div className="w-28 text-right">
-            <div className={`text-xs ${left < 0.2 ? "text-rose-300" : "text-white/50"}`}>
-              {e.availableSeats} of {e.totalSeats} left
-            </div>
-            <div className="mt-1 h-1.5 rounded-full bg-white/10">
-              <div className={`h-full rounded-full ${left < 0.2 ? "bg-rose-400" : "bg-emerald-400"}`} style={{ width: `${left * 100}%` }} />
-            </div>
-          </div>
+    </Link>
+  );
+}
+
+function EventCard({ event: e }: { event: EventItem }) {
+  return (
+    <Link
+      href={`/events/${e.id}`}
+      className="group flex flex-col overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] transition-shadow hover:shadow-md"
+    >
+      <div className="aspect-[3/2] overflow-hidden">
+        <EventCover event={e} className="transition-transform duration-500 group-hover:scale-[1.03]" />
+      </div>
+      <div className="flex flex-1 flex-col p-5">
+        <p className="eyebrow">{e.category}</p>
+        <h2 className="mt-2 font-display text-xl font-semibold leading-snug tracking-tight">{e.title}</h2>
+        <div className="mt-2"><Meta event={e} /></div>
+        <div className="mt-auto flex items-end justify-between gap-4 pt-6">
+          <p className="font-semibold tabular"><span className="mr-1 text-xs font-normal text-subtle">from</span>{inr(e.priceCents)}</p>
+          <Availability event={e} />
         </div>
       </div>
     </Link>

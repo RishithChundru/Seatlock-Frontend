@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, Booking, inr, useSession, when } from "@/lib/api";
-import ErrorBox from "@/components/ErrorBox";
+import Button from "@/components/ui/Button";
+import { Alert, Skeleton } from "@/components/ui/Feedback";
+import { CalendarIcon, PinIcon, TicketIcon } from "@/components/ui/Icons";
 
 export default function BookingsPage() {
   const session = useSession();
@@ -24,55 +26,55 @@ export default function BookingsPage() {
 
   if (!session) {
     return (
-      <div className="pt-20 text-center">
-        <p className="text-white/60">Sign in to see your tickets.</p>
-        <Link href="/login?next=/bookings" className="mt-4 inline-block rounded-full bg-white px-5 py-2 text-sm font-medium text-black">Sign in</Link>
+      <div className="mx-auto max-w-sm pt-24 text-center">
+        <TicketIcon className="mx-auto h-8 w-8 text-subtle" />
+        <p className="mt-4 text-muted">Sign in to see your tickets.</p>
+        <Button href="/login?next=/bookings" className="mt-5">Sign in</Button>
       </div>
     );
   }
 
   return (
-    <div className="pt-10">
-      <h1 className="font-display text-3xl font-bold">My tickets</h1>
-      <p className="mt-1 text-white/50">Every seat here is confirmed and can&apos;t be booked by anyone else.</p>
+    <div className="pt-12">
+      <p className="eyebrow">Your wallet</p>
+      <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">Tickets</h1>
 
       <div className="mt-8 space-y-4">
-        {error && <ErrorBox message={error} />}
-        {bookings === null && !error && <div className="h-32 animate-pulse rounded-3xl bg-white/5" />}
+        {error && <Alert>{error}</Alert>}
+        {bookings === null && !error && <><Skeleton className="h-36" /><Skeleton className="h-36" /></>}
         {bookings?.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-white/15 p-10 text-center text-white/50">
-            No tickets yet. <Link href="/" className="text-violet-300 underline">Find an event</Link>
+          <div className="rounded-[var(--card-radius)] border border-dashed border-line-strong px-6 py-14 text-center">
+            <p className="text-muted">No tickets yet.</p>
+            <Button href="/" variant="secondary" className="mt-4">Browse events</Button>
           </div>
         )}
         {bookings?.map((b) => (
-          <article key={b.id} className="flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] sm:flex-row">
+          <article key={b.id} className="flex flex-col overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] sm:flex-row">
             <div className="flex-1 p-6">
-              <p className="text-xs uppercase tracking-widest text-violet-300">
-                {when(b.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+              <Link href={`/events/${b.eventId}`} className="font-display text-xl font-semibold tracking-tight hover:text-accent-fg">{b.eventTitle}</Link>
+              <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+                <span className="inline-flex items-center gap-1.5 tabular"><CalendarIcon className="text-subtle" />{when(b.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>
+                <span className="inline-flex items-center gap-1.5"><PinIcon className="text-subtle" />{b.venue}</span>
               </p>
-              <Link href={`/events/${b.eventId}`} className="mt-1 block font-display text-xl font-semibold hover:underline">{b.eventTitle}</Link>
-              <p className="text-sm text-white/50">{b.venue}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {b.seats.map((s) => (
-                  <span key={s} className="rounded-lg bg-white/10 px-2.5 py-1 font-mono text-sm">{s}</span>
-                ))}
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className="eyebrow mr-1 self-center">Seats</span>
+                {b.seats.map((s) => <span key={s} className="rounded-sm bg-sunken px-2 py-0.5 font-mono text-sm">{s}</span>)}
               </div>
             </div>
-            <div className="flex items-center justify-between gap-6 border-t border-dashed border-white/15 bg-white/[0.03] px-6 py-4 sm:w-48 sm:flex-col sm:items-start sm:justify-center sm:border-l sm:border-t-0">
+            <div className="flex items-center justify-between gap-6 border-t border-dashed border-line-strong px-6 py-5 sm:w-56 sm:flex-col sm:items-start sm:justify-center sm:border-l sm:border-t-0">
               <div>
-                <div className="text-xs text-white/40">Ticket</div>
+                <p className="eyebrow">Ticket code</p>
                 {b.ticketCode ? (
-                  <div className="font-mono text-emerald-200">{b.ticketCode}</div>
+                  <p className="mt-1 font-mono text-[15px] font-medium tracking-wide text-fg">{b.ticketCode}</p>
                 ) : (
-                  <div className="flex items-center gap-2 text-sm text-amber-200">
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-amber-200 border-t-transparent" aria-hidden />
-                    Issuing…
-                  </div>
+                  <p className="mt-1 flex items-center gap-2 text-sm text-warning" aria-live="polite">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> Issuing…
+                  </p>
                 )}
               </div>
-              <div>
-                <div className="text-xs text-white/40">Paid</div>
-                <div className="font-display text-lg font-bold">{inr(b.totalCents)}</div>
+              <div className="sm:mt-4">
+                <p className="eyebrow">Paid</p>
+                <p className="mt-1 font-display text-lg font-semibold tabular">{inr(b.totalCents)}</p>
               </div>
             </div>
           </article>

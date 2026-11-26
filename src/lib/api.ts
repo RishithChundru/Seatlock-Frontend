@@ -8,6 +8,7 @@ export type User = { id: number; email: string; name: string; role: "USER" | "AD
 export type EventItem = {
   id: number; title: string; venue: string; category: string; startsAt: string;
   priceCents: number; totalSeats: number; availableSeats: number;
+  description: string | null; imageUrl: string | null;
 };
 export type Seat = { id: number; row: string; number: number; status: "AVAILABLE" | "BOOKED" | "HELD"; mine: boolean };
 export type Booking = {
@@ -49,7 +50,7 @@ export function useSession(): Session | null {
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const session = readSession();
   const headers = new Headers(init.headers);
-  if (init.body) headers.set("Content-Type", "application/json");
+  if (typeof init.body === "string") headers.set("Content-Type", "application/json"); // FormData sets its own boundary
   if (session) headers.set("Authorization", `Bearer ${session.token}`);
   let res: Response;
   try {
@@ -71,10 +72,6 @@ export const inr = (paise: number) =>
 export const when = (iso: string, opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", ...opts }).format(new Date(iso));
 
-export const categoryStyle: Record<string, { gradient: string; emoji: string }> = {
-  Concert: { gradient: "from-fuchsia-600 via-violet-600 to-indigo-700", emoji: "🎧" },
-  Comedy: { gradient: "from-amber-500 via-orange-500 to-rose-600", emoji: "🎤" },
-  Movie: { gradient: "from-sky-500 via-cyan-600 to-teal-700", emoji: "🎬" },
-  Tech: { gradient: "from-emerald-500 via-teal-600 to-slate-700", emoji: "💻" },
-};
-export const styleFor = (c: string) => categoryStyle[c] ?? { gradient: "from-slate-500 to-slate-800", emoji: "🎟️" };
+export const CATEGORIES = ["Concert", "Comedy", "Movie", "Theatre", "Sports", "Tech"] as const;
+
+export const imageSrc = (e: { imageUrl: string | null }) => (e.imageUrl ? `${API_URL}${e.imageUrl}` : null);

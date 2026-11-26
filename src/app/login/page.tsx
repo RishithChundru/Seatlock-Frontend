@@ -3,7 +3,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 import { api, setSession, User } from "@/lib/api";
-import ErrorBox from "@/components/ErrorBox";
+import Button from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
+import { Alert } from "@/components/ui/Feedback";
 
 export default function LoginPage() {
   return <Suspense><LoginForm /></Suspense>;
@@ -18,6 +20,7 @@ function LoginForm() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -35,61 +38,50 @@ function LoginForm() {
     }
   };
 
-  const field = (key: keyof typeof form, label: string, type: string, autoComplete: string) => (
-    <label className="block">
-      <span className="text-sm text-white/60">{label}</span>
-      <input
-        type={type}
-        required
-        minLength={key === "password" && mode === "register" ? 8 : undefined}
-        autoComplete={autoComplete}
-        value={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-        className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none transition placeholder:text-white/30 focus:border-violet-400 focus:bg-white/[0.07]"
-      />
-    </label>
-  );
-
   return (
-    <div className="mx-auto max-w-md pt-16">
-      <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-violet-950/40">
-        <h1 className="font-display text-3xl font-bold">{mode === "login" ? "Welcome back" : "Create account"}</h1>
-        <p className="mt-1 text-white/50">{mode === "login" ? "Sign in to lock in your seats." : "It takes ten seconds."}</p>
+    <div className="mx-auto grid max-w-4xl gap-10 pt-12 sm:pt-20 md:grid-cols-[1fr_380px] md:items-center">
+      <div className="hidden md:block">
+        <p className="eyebrow">Seatlock</p>
+        <p className="mt-4 font-display text-4xl font-semibold leading-tight tracking-tight">
+          The seat you tap is the seat you get.
+        </p>
+        <ul className="mt-6 space-y-3 text-muted">
+          <li>Seats are held for 5 minutes while you check out.</li>
+          <li>Two people can never book the same seat.</li>
+          <li>Tickets arrive by email within seconds.</li>
+        </ul>
+      </div>
 
-        <div className="mt-6 grid grid-cols-2 rounded-xl bg-white/5 p-1 text-sm">
-          {(["login", "register"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => { setMode(m); setError(null); }}
-              className={`rounded-lg py-2 transition ${mode === m ? "bg-white text-black" : "text-white/60 hover:text-white"}`}
-            >
-              {m === "login" ? "Sign in" : "Register"}
-            </button>
-          ))}
-        </div>
+      <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-7 shadow-md">
+        <h1 className="font-display text-2xl font-semibold">{mode === "login" ? "Sign in" : "Create an account"}</h1>
+        <p className="mt-1 text-sm text-muted">
+          {mode === "login" ? "New here? " : "Already have an account? "}
+          <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }} className="font-medium text-accent-fg underline-offset-4 hover:underline">
+            {mode === "login" ? "Create an account" : "Sign in"}
+          </button>
+        </p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
-          {error && <ErrorBox message={error} />}
-          {mode === "register" && field("name", "Name", "text", "name")}
-          {field("email", "Email", "email", "email")}
-          {field("password", "Password", "password", mode === "login" ? "current-password" : "new-password")}
-          <button
-            disabled={busy}
-            className="w-full rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3 font-semibold transition hover:brightness-110 disabled:opacity-50"
-          >
+          {error && <Alert>{error}</Alert>}
+          {mode === "register" && <Field label="Name" required autoComplete="name" value={form.name} onChange={set("name")} />}
+          <Field label="Email" type="email" required autoComplete="email" value={form.email} onChange={set("email")} />
+          <Field
+            label="Password" type="password" required minLength={mode === "register" ? 8 : undefined}
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            hint={mode === "register" ? "At least 8 characters." : undefined}
+            value={form.password} onChange={set("password")}
+          />
+          <Button type="submit" size="lg" className="w-full" disabled={busy}>
             {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
-          </button>
+          </Button>
         </form>
 
         {mode === "login" && (
-          <button
-            type="button"
-            onClick={() => setForm({ name: "", email: "demo@seatlock.dev", password: "Demo@12345" })}
-            className="mt-4 w-full rounded-xl border border-dashed border-white/15 py-2.5 text-sm text-white/60 transition hover:border-white/30 hover:text-white"
-          >
-            Use demo account
-          </button>
+          <div className="mt-5 border-t border-line pt-5">
+            <Button variant="secondary" className="w-full" onClick={() => setForm({ name: "", email: "demo@seatlock.dev", password: "Demo@12345" })}>
+              Fill in demo account
+            </Button>
+          </div>
         )}
       </div>
     </div>
