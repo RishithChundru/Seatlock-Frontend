@@ -26,7 +26,7 @@ export default function AdminPage() {
   useEffect(() => { if (session?.user.role === "ADMIN") load(); }, [session, load]);
 
   if (session?.user.role !== "ADMIN") {
-    return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">This page is for admins. Sign in as admin@seatlock.dev to manage events.</Alert></div>;
+    return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">This page is for admins. Sign in with the admin account to manage events.</Alert></div>;
   }
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
