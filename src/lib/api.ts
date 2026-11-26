@@ -9,11 +9,12 @@ export type EventItem = {
   id: number; title: string; venue: string; category: string; startsAt: string;
   priceCents: number; totalSeats: number; availableSeats: number;
 };
-export type Seat = { id: number; row: string; number: number; status: "AVAILABLE" | "BOOKED" };
+export type Seat = { id: number; row: string; number: number; status: "AVAILABLE" | "BOOKED" | "HELD"; mine: boolean };
 export type Booking = {
   id: number; eventId: number; eventTitle: string; venue: string; startsAt: string;
-  totalCents: number; createdAt: string; seats: string[];
+  totalCents: number; createdAt: string; seats: string[]; ticketCode: string | null;
 };
+export type Hold = { seatIds: number[]; expiresAt: string };
 type Session = { token: string; user: User };
 
 export class ApiError extends Error {
@@ -61,7 +62,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body = await res.json().catch(() => null);
     throw new ApiError(res.status, body?.detail ?? body?.title ?? `Request failed (${res.status})`);
   }
-  return res.json() as Promise<T>;
+  return (res.status === 204 ? undefined : res.json()) as Promise<T>;
 }
 
 export const inr = (paise: number) =>

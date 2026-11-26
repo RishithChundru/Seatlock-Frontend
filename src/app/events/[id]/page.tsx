@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, Booking, EventItem, inr, Seat, styleFor, useSession, when } from "@/lib/api";
+import { api, ApiError, Booking, EventItem, Hold, inr, Seat, styleFor, useSession, when } from "@/lib/api";
 import ErrorBox from "@/components/ErrorBox";
 
 const MAX_SEATS = 10;
@@ -19,26 +19,27 @@ function EventView() {
   const session = useSession();
   const [event, setEvent] = useState<EventItem | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
-  const [selected, setSelected] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<Booking | null>(null);
+  const [holdUntil, setHoldUntil] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   // One key per checkout attempt: a double-click or network retry replays instead of booking twice.
   const idemKey = useRef<string | null>(null);
+  // Seats we believe we hold, to notice when the server says a hold expired.
+  const mine = useRef<Set<number>>(new Set());
+  const loginUrl = `/login?next=/events/${id}`;
 
   const load = useCallback(async () => {
     try {
       const [e, s] = await Promise.all([api<EventItem>(`/api/events/${id}`), api<Seat[]>(`/api/events/${id}/seats`)]);
       setEvent(e);
       setSeats(s);
-      // Drop selections someone else just booked.
-      const booked = new Set(s.filter((x) => x.status === "BOOKED").map((x) => x.id));
-      setSelected((sel) => {
-        const kept = sel.filter((x) => !booked.has(x));
-        if (kept.length !== sel.length) setToast("A seat you picked was just taken by someone else.");
-        return kept;
-      });
+      const held = new Set(s.filter((x) => x.mine).map((x) => x.id));
+      if ([...mine.current].some((x) => !held.has(x))) setToast("Your hold on a seat ran out. Pick it again if it's still free.");
+      mine.current = held;
+      if (held.size === 0) setHoldUntil(null);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -54,6 +55,12 @@ function EventView() {
   }, [load]);
 
   useEffect(() => {
+    if (holdUntil === null) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [holdUntil]);
+
+  useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3500);
     return () => clearTimeout(t);
@@ -65,40 +72,62 @@ function EventView() {
     return [...m.entries()];
   }, [seats]);
 
-  const seatById = useMemo(() => new Map(seats.map((s) => [s.id, s])), [seats]);
+  const selected = useMemo(() => seats.filter((s) => s.mine), [seats]);
+  const patch = (seatId: number, change: Partial<Seat>) =>
+    setSeats((list) => list.map((s) => (s.id === seatId ? { ...s, ...change } : s)));
 
-  const toggle = (s: Seat) => {
-    if (s.status === "BOOKED") return;
+  const toggle = async (s: Seat) => {
+    if (!session) { router.push(loginUrl); return; }
+    if (s.status === "BOOKED" || (s.status === "HELD" && !s.mine)) return;
     idemKey.current = null;
-    setSelected((sel) => {
-      if (sel.includes(s.id)) return sel.filter((x) => x !== s.id);
-      if (sel.length >= MAX_SEATS) { setToast(`You can book up to ${MAX_SEATS} seats at once.`); return sel; }
-      return [...sel, s.id];
-    });
+
+    if (s.mine) {
+      mine.current.delete(s.id);
+      patch(s.id, { status: "AVAILABLE", mine: false });
+      api(`/api/holds/${s.id}`, { method: "DELETE" }).catch(() => load());
+      return;
+    }
+    if (selected.length >= MAX_SEATS) { setToast(`You can hold up to ${MAX_SEATS} seats at once.`); return; }
+
+    mine.current.add(s.id);
+    patch(s.id, { status: "HELD", mine: true }); // optimistic; the server is the judge
+    try {
+      const h = await api<Hold>("/api/holds", { method: "POST", body: JSON.stringify({ eventId: Number(id), seatIds: [s.id] }) });
+      const exp = Date.parse(h.expiresAt);
+      setHoldUntil((u) => (u === null ? exp : Math.min(u, exp)));
+    } catch (e) {
+      mine.current.delete(s.id);
+      if (e instanceof ApiError && e.status === 401) { router.push(loginUrl); return; }
+      setToast(e instanceof ApiError && e.status === 409 ? "Someone grabbed that seat a moment ago." : (e as Error).message);
+      load();
+    }
   };
 
   const book = async () => {
-    if (!session) { router.push(`/login?next=/events/${id}`); return; }
+    if (!session) { router.push(loginUrl); return; }
     idemKey.current ??= crypto.randomUUID();
     setBusy(true);
     try {
       const b = await api<Booking>("/api/bookings", {
         method: "POST",
         headers: { "Idempotency-Key": idemKey.current },
-        body: JSON.stringify({ eventId: Number(id), seatIds: selected }),
+        body: JSON.stringify({ eventId: Number(id), seatIds: selected.map((s) => s.id) }),
       });
       setDone(b);
-      setSelected([]);
+      mine.current = new Set();
+      setHoldUntil(null);
       idemKey.current = null;
       load();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) { idemKey.current = null; setToast(e.message); load(); }
-      else if (e instanceof ApiError && e.status === 401) router.push(`/login?next=/events/${id}`);
+      else if (e instanceof ApiError && e.status === 401) router.push(loginUrl);
       else setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   };
+
+  const secondsLeft = holdUntil === null ? null : Math.max(0, Math.round((holdUntil - now) / 1000));
 
   if (error && !event) return <div className="pt-10"><ErrorBox message={error} /></div>;
   if (!event) return <div className="mt-10 h-96 animate-pulse rounded-3xl bg-white/5" />;
@@ -139,24 +168,28 @@ function EventView() {
                 <div key={row} className="flex items-center gap-1.5">
                   <span className="w-5 text-center font-mono text-xs text-white/40">{row}</span>
                   {list.map((s, i) => {
-                    const mine = selected.includes(s.id);
                     const aisle = i === Math.floor(list.length / 2);
+                    const heldByOther = s.status === "HELD" && !s.mine;
+                    const label = s.status === "BOOKED" ? "booked" : s.mine ? "held by you" : heldByOther ? "held by another customer" : "available";
                     return (
                       <button
                         key={s.id}
                         onClick={() => toggle(s)}
-                        disabled={s.status === "BOOKED"}
-                        aria-pressed={mine}
-                        aria-label={`Seat ${s.row}${s.number}, ${s.status === "BOOKED" ? "booked" : mine ? "selected" : "available"}`}
+                        disabled={s.status === "BOOKED" || heldByOther}
+                        aria-pressed={s.mine}
+                        aria-label={`Seat ${s.row}${s.number}, ${label}`}
+                        title={heldByOther ? "Someone is checking out with this seat" : undefined}
                         className={`${aisle ? "ml-4" : ""} grid h-7 w-7 place-items-center rounded-t-lg rounded-b-sm text-[10px] font-medium transition sm:h-8 sm:w-8
                           ${s.status === "BOOKED"
                             ? "cursor-not-allowed bg-white/5 text-white/20"
-                            : mine
+                            : s.mine
                               ? "pop bg-gradient-to-b from-fuchsia-400 to-violet-500 text-white shadow-lg shadow-fuchsia-500/30"
-                              : "bg-white/15 text-white/70 hover:bg-emerald-400/70 hover:text-black"}
+                              : heldByOther
+                                ? "cursor-not-allowed bg-amber-400/25 text-amber-200/70"
+                                : "bg-white/15 text-white/70 hover:bg-emerald-400/70 hover:text-black"}
                           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300`}
                       >
-                        {s.status === "BOOKED" ? "×" : s.number}
+                        {s.status === "BOOKED" ? "×" : heldByOther ? "•" : s.number}
                       </button>
                     );
                   })}
@@ -168,7 +201,8 @@ function EventView() {
 
           <div className="mt-8 flex flex-wrap justify-center gap-5 text-xs text-white/60">
             <Legend className="bg-white/15" label="Available" />
-            <Legend className="bg-gradient-to-b from-fuchsia-400 to-violet-500" label="Your pick" />
+            <Legend className="bg-gradient-to-b from-fuchsia-400 to-violet-500" label="Held by you" />
+            <Legend className="bg-amber-400/25" label="In someone's cart" />
             <Legend className="bg-white/5" label="Booked" />
             <span className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> Live · refreshes every {POLL_MS / 1000}s
@@ -181,16 +215,21 @@ function EventView() {
             <h2 className="font-display text-lg font-semibold">Your selection</h2>
             <p className="mt-1 text-sm text-white/50">{event.availableSeats} seats still available</p>
 
+            {secondsLeft !== null && selected.length > 0 && (
+              <p role="timer" className={`mt-4 rounded-xl px-3 py-2 text-sm ${secondsLeft < 60 ? "bg-rose-500/15 text-rose-200" : "bg-emerald-500/10 text-emerald-200"}`}>
+                Seats held for you · {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}
+              </p>
+            )}
+
             <div className="mt-5 flex min-h-12 flex-wrap gap-2">
-              {selected.length === 0 && <p className="text-sm text-white/40">Tap seats on the map to pick them.</p>}
-              {selected.map((sid) => {
-                const s = seatById.get(sid);
-                return s && (
-                  <button key={sid} onClick={() => toggle(s)} className="rounded-lg bg-violet-500/20 px-2.5 py-1 font-mono text-sm text-violet-100 hover:bg-violet-500/30">
-                    {s.row}{s.number} ✕
-                  </button>
-                );
-              })}
+              {selected.length === 0 && (
+                <p className="text-sm text-white/40">{session ? "Tap seats to hold them for 5 minutes." : "Sign in, then tap seats to hold them."}</p>
+              )}
+              {selected.map((s) => (
+                <button key={s.id} onClick={() => toggle(s)} aria-label={`Release seat ${s.row}${s.number}`} className="rounded-lg bg-violet-500/20 px-2.5 py-1 font-mono text-sm text-violet-100 hover:bg-violet-500/30">
+                  {s.row}{s.number} ✕
+                </button>
+              ))}
             </div>
 
             <div className="mt-6 flex items-baseline justify-between border-t border-white/10 pt-4">
@@ -200,7 +239,7 @@ function EventView() {
 
             <button
               onClick={book}
-              disabled={selected.length === 0 || busy}
+              disabled={(session !== null && selected.length === 0) || busy}
               className="mt-5 w-full rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3.5 font-semibold text-white shadow-lg shadow-violet-500/25 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
             >
               {busy ? "Locking your seats…" : session ? "Book now" : "Sign in to book"}
@@ -225,6 +264,7 @@ function EventView() {
               Seats <span className="font-mono text-white">{done.seats.join(", ")}</span> are locked in for {done.eventTitle}.
             </p>
             <p className="mt-1 text-sm text-white/40">Booking #{done.id} · {inr(done.totalCents)}</p>
+            <p className="mt-3 text-xs text-white/40">Your ticket code is being issued and emailed. It shows up in My tickets in a few seconds.</p>
             <div className="mt-6 flex gap-3">
               <button onClick={() => setDone(null)} className="flex-1 rounded-xl border border-white/15 py-2.5 text-sm hover:bg-white/5">
                 Book more

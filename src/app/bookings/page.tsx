@@ -10,10 +10,17 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const pending = bookings?.some((b) => !b.ticketCode) ?? false;
+
   useEffect(() => {
     if (!session) return;
-    api<Booking[]>("/api/bookings/me").then(setBookings).catch((e) => setError(e.message));
-  }, [session]);
+    const load = () => api<Booking[]>("/api/bookings/me").then(setBookings).catch((e) => setError(e.message));
+    load();
+    if (!pending) return;
+    // Tickets are issued asynchronously by the RabbitMQ consumer; refresh until every booking has one.
+    const t = setInterval(load, 2000);
+    return () => clearInterval(t);
+  }, [session, pending]);
 
   if (!session) {
     return (
@@ -53,8 +60,15 @@ export default function BookingsPage() {
             </div>
             <div className="flex items-center justify-between gap-6 border-t border-dashed border-white/15 bg-white/[0.03] px-6 py-4 sm:w-48 sm:flex-col sm:items-start sm:justify-center sm:border-l sm:border-t-0">
               <div>
-                <div className="text-xs text-white/40">Booking</div>
-                <div className="font-mono">#{b.id}</div>
+                <div className="text-xs text-white/40">Ticket</div>
+                {b.ticketCode ? (
+                  <div className="font-mono text-emerald-200">{b.ticketCode}</div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-amber-200">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-amber-200 border-t-transparent" aria-hidden />
+                    Issuing…
+                  </div>
+                )}
               </div>
               <div>
                 <div className="text-xs text-white/40">Paid</div>

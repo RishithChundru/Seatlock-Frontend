@@ -5,7 +5,9 @@ Next.js 16 (React 19, Tailwind 4) UI for **SeatLock**, a concurrency-safe event 
 ## Features
 
 - Event grid with live seat availability
-- Interactive seat map: stage, aisles, up to 10 seats per booking, refreshes every 4 seconds and drops seats someone else just took
+- Interactive seat map: stage, aisles, up to 10 seats per booking, refreshes every 4 seconds
+- Tapping a seat places a 5-minute Redis hold on the backend, with a countdown; seats in other people's carts show in amber
+- My tickets shows "Issuing…" until the RabbitMQ consumer issues the ticket code
 - Every checkout sends an `Idempotency-Key`, so a double-click or network retry never books twice
 - 409 conflicts shown as a friendly "seat just taken" message
 - JWT login and registration, a My tickets page, and a mobile-friendly layout
