@@ -36,7 +36,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 and use **Fill in demo account** on the sign-in page. Sign in as `admin@seatlock.dev` / `Admin@12345` to reach the Admin page.
+Open http://localhost:3000, then sign in or create an account. The backend seeds `demo@seatlock.dev` / `Demo@12345` (user) and `admin@seatlock.dev` / `Admin@12345` locally (admin, reaches the Admin page).
 
 Set `NEXT_PUBLIC_API_URL` (copy [`.env.example`](.env.example) to `.env.local`) if the backend isn't at `http://localhost:8080`.
 
