@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import jsQR from "jsqr";
 import { api, ApiError, CheckInResult, EventItem, useSession, when } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
@@ -10,10 +11,12 @@ import { ArrowLeftIcon, CheckIcon } from "@/components/ui/Icons";
 
 type Outcome = { kind: "ok" | "repeat" | "refused"; title: string; detail: string };
 
-// BarcodeDetector is in Chromium on Android, macOS and ChromeOS; elsewhere staff type the code.
+// The native BarcodeDetector exists in Chromium on Android, macOS and ChromeOS. Everywhere else
+// (Windows Chrome/Edge, Firefox, Safari) camera frames are decoded with jsQR instead.
 type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 const noSubscribe = () => () => {};
 const Barcode = () => (globalThis as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
+const MAX_FRAME_WIDTH = 640; // decode a downscaled frame: plenty for a QR held up to the camera, and fast
 
 export default function CheckInPage() {
   const session = useSession();
@@ -23,9 +26,9 @@ export default function CheckInPage() {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
-  // Browser capability, read without an effect; false during prerender.
+  // Any browser with a camera API on HTTPS/localhost can scan now; false during prerender.
   const canScan = useSyncExternalStore(noSubscribe,
-    () => Boolean(Barcode()) && Boolean(navigator.mediaDevices?.getUserMedia), () => false);
+    () => window.isSecureContext && Boolean(navigator.mediaDevices?.getUserMedia), () => false);
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
 
@@ -62,25 +65,45 @@ export default function CheckInPage() {
   };
 
   const startScan = async () => {
-    const Ctor = Barcode();
-    if (!Ctor) return;
+    setOutcome(null);
     try {
-      stream.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      // Back camera on phones; laptops fall back to their only camera.
+      stream.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } });
       setScanning(true);
       const v = video.current!;
       v.srcObject = stream.current;
       await v.play();
-      const detector = new Ctor({ formats: ["qr_code"] });
+
+      const Native = Barcode();
+      const detector = Native ? new Native({ formats: ["qr_code"] }) : null;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+      const readFrame = async (): Promise<string | null> => {
+        if (detector) return (await detector.detect(v).catch(() => []))[0]?.rawValue ?? null;
+        if (!ctx || v.readyState < 2 || !v.videoWidth) return null;
+        const scale = Math.min(1, MAX_FRAME_WIDTH / v.videoWidth);
+        canvas.width = Math.round(v.videoWidth * scale);
+        canvas.height = Math.round(v.videoHeight * scale);
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        return jsQR(frame.data, frame.width, frame.height, { inversionAttempts: "dontInvert" })?.data ?? null;
+      };
+
       const tick = async () => {
-        if (!stream.current) return;
-        const found = await detector.detect(v).catch(() => []);
-        if (found[0]?.rawValue) { stopScan(); checkIn(found[0].rawValue); return; }
+        if (!stream.current) return; // stopped
+        const text = await readFrame();
+        if (text) { stopScan(); checkIn(text); return; }
         requestAnimationFrame(tick);
       };
       tick();
-    } catch {
+    } catch (e) {
       stopScan();
-      setOutcome({ kind: "refused", title: "Camera unavailable", detail: "Allow camera access, or type the code instead." });
+      const denied = e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "SecurityError");
+      setOutcome({
+        kind: "refused", title: denied ? "Camera blocked" : "No camera found",
+        detail: denied ? "Allow camera access for this site in the browser's address bar, then press Scan QR again." : "Type the ticket code instead.",
+      });
     }
   };
 
@@ -113,7 +136,14 @@ export default function CheckInPage() {
             ? <Button type="button" variant="secondary" onClick={stopScan}>Stop camera</Button>
             : <Button type="button" variant="secondary" onClick={startScan}>Scan QR</Button>)}
         </div>
-        <video ref={video} muted playsInline className={scanning ? "w-full rounded-md bg-black" : "hidden"} aria-label="Camera preview" />
+        <div className={scanning ? "relative overflow-hidden rounded-md bg-black" : "hidden"}>
+          <video ref={video} muted playsInline className="block w-full" aria-label="Camera preview" />
+          {/* Viewfinder: where to hold the ticket */}
+          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
+            <div className="aspect-square w-3/5 max-w-60 rounded-lg border-2 border-white/90 shadow-[0_0_0_9999px_rgb(0_0_0/0.35)]" />
+          </div>
+          <p className="absolute inset-x-0 bottom-2 text-center text-xs text-white/90" aria-live="polite">Hold the ticket&apos;s QR code inside the square</p>
+        </div>
       </form>
 
       {outcome && (
