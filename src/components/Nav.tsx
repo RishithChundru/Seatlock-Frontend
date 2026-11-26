@@ -28,6 +28,7 @@ export default function Nav() {
     <>
       {link("/", "Events")}
       {session && link("/bookings", "Tickets")}
+      {session && <span className="md:hidden">{link("/account", "Account")}</span>}
       {session?.user.role === "ADMIN" && link("/admin", "Admin")}
     </>
   );
@@ -43,7 +44,7 @@ export default function Nav() {
           <ThemeToggle />
           {session ? (
             <>
-              <span className="hidden px-2 text-sm text-muted md:inline">{session.user.name}</span>
+              <Link href="/account" className="hidden rounded-md px-2 py-1 text-sm text-muted transition-colors hover:text-fg md:inline">{session.user.name}</Link>
               <Button variant="ghost" size="sm" onClick={() => setSession(null)}>Sign out</Button>
             </>
           ) : (

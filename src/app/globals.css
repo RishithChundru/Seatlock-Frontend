@@ -95,6 +95,9 @@ body {
   color: transparent;
 }
 .seat:active:not(:disabled) { transform: scale(0.94); }
+/* Tiers only restyle seats that are still for sale. */
+.seat[data-state="available"][data-tier="VIP"] { border: 1.5px solid var(--seat-vip-border); }
+.seat[data-state="available"][data-tier="PREMIUM"] { border: 1.5px solid var(--seat-premium-border); }
 
 dialog::backdrop { background: var(--sl-overlay); }
 

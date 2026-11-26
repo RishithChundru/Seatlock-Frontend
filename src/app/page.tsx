@@ -1,24 +1,83 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { api, EventItem, inr, when } from "@/lib/api";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { api, EventItem, EventPage, inr, when } from "@/lib/api";
 import EventCover from "@/components/EventCover";
+import Button from "@/components/ui/Button";
+import { controlClass } from "@/components/ui/Field";
 import { Alert, Skeleton } from "@/components/ui/Feedback";
 import { PinIcon } from "@/components/ui/Icons";
 
+const PAGE_SIZE = 9;
+const WHEN_OPTIONS = { any: "Any time", week: "Next 7 days", month: "Next 30 days" } as const;
+const PRICE_OPTIONS = { any: "Any price", "50000": "Up to ₹500", "100000": "Up to ₹1,000", "200000": "Up to ₹2,000" } as const;
+
 export default function Home() {
-  const [events, setEvents] = useState<EventItem[] | null>(null);
+  return <Suspense><HomeView /></Suspense>;
+}
+
+function HomeView() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const q = params.get("q") ?? "";
+  const category = params.get("category") ?? "";
+  const city = params.get("city") ?? "";
+  const whenKey = (params.get("when") ?? "any") as keyof typeof WHEN_OPTIONS;
+  const price = (params.get("price") ?? "any") as keyof typeof PRICE_OPTIONS;
+
+  const [result, setResult] = useState<EventPage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState<string>("All");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [text, setText] = useState(q);
+
+  // Filters live in the URL so a search can be shared or bookmarked.
+  const setFilter = (key: string, value: string) => {
+    const next = new URLSearchParams(params.toString());
+    if (value && value !== "any") next.set(key, value); else next.delete(key);
+    router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
+  };
 
   useEffect(() => {
-    api<EventItem[]>("/api/events").then(setEvents).catch((e) => setError(e.message));
-  }, []);
+    if (text === q) return;
+    const t = setTimeout(() => setFilter("q", text.trim()), 300); // debounce typing
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the typed text changes
+  }, [text]);
 
-  const categories = useMemo(() => ["All", ...new Set(events?.map((e) => e.category))], [events]);
-  const shown = events?.filter((e) => category === "All" || e.category === category) ?? [];
-  const [featured, ...rest] = shown;
+  const query = (page: number) => {
+    const s = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+    if (q) s.set("q", q);
+    if (category) s.set("category", category);
+    if (city) s.set("city", city);
+    if (price !== "any") s.set("maxPrice", price);
+    if (whenKey !== "any") s.set("to", new Date(Date.now() + (whenKey === "week" ? 7 : 30) * 86_400_000).toISOString());
+    return `/api/events/search?${s}`;
+  };
+
+  useEffect(() => {
+    api<EventPage>(query(0)).then((r) => { setResult(r); setError(null); }).catch((e) => setError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- query() reads exactly these filters
+  }, [q, category, city, whenKey, price]);
+
+  const loadMore = async () => {
+    if (!result) return;
+    setLoadingMore(true);
+    try {
+      const next = await api<EventPage>(query(result.page + 1));
+      setResult({ ...next, items: [...result.items, ...next.items] });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const filtered = Boolean(q || category || city || whenKey !== "any" || price !== "any");
+  const items = result?.items ?? [];
+  const [featured, ...rest] = filtered ? [undefined, ...items] : items;
 
   return (
     <>
@@ -32,42 +91,76 @@ export default function Home() {
         </p>
       </section>
 
+      {/* Search and filters */}
+      <form role="search" onSubmit={(e) => { e.preventDefault(); setFilter("q", text.trim()); }}
+        className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+        <label className="sr-only" htmlFor="q">Search events</label>
+        <input id="q" type="search" value={text} onChange={(e) => setText(e.target.value)}
+          placeholder="Search events, venues, artists" className={`${controlClass} h-11`} />
+        <label className="sr-only" htmlFor="city">City</label>
+        <select id="city" value={city} onChange={(e) => setFilter("city", e.target.value)} className={`${controlClass} h-11`}>
+          <option value="">All cities</option>
+          {result?.cities.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <label className="sr-only" htmlFor="when">Date</label>
+        <select id="when" value={whenKey} onChange={(e) => setFilter("when", e.target.value)} className={`${controlClass} h-11`}>
+          {Object.entries(WHEN_OPTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <label className="sr-only" htmlFor="price">Price</label>
+        <select id="price" value={price} onChange={(e) => setFilter("price", e.target.value)} className={`${controlClass} h-11`}>
+          {Object.entries(PRICE_OPTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </form>
+
+      <div role="group" aria-label="Filter by category" className="-mx-1 mt-4 flex gap-1 overflow-x-auto px-1 pb-1">
+        {["", ...(result?.categories ?? [])].map((c) => (
+          <button
+            key={c || "all"}
+            aria-pressed={category === c}
+            onClick={() => setFilter("category", c)}
+            className={`h-9 shrink-0 rounded-full border px-4 text-sm transition-colors ${
+              category === c ? "border-fg bg-fg text-bg" : "border-line-strong text-muted hover:border-fg hover:text-fg"
+            }`}
+          >
+            {c || "All"}
+          </button>
+        ))}
+      </div>
+
       {error && <div className="mt-8"><Alert>{error}</Alert></div>}
 
-      {events && events.length > 0 && (
-        <div role="group" aria-label="Filter by category" className="-mx-1 mt-8 flex gap-1 overflow-x-auto px-1 pb-1">
-          {categories.map((c) => (
-            <button
-              key={c}
-              aria-pressed={category === c}
-              onClick={() => setCategory(c)}
-              className={`h-9 shrink-0 rounded-full border px-4 text-sm transition-colors ${
-                category === c ? "border-fg bg-fg text-bg" : "border-line-strong text-muted hover:border-fg hover:text-fg"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {events === null && !error && (
+      {result === null && !error && (
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <Skeleton className="aspect-[3/2] sm:col-span-2 lg:col-span-3 lg:aspect-[3/1]" />
           {[0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[4/5]" />)}
         </div>
       )}
 
-      {events?.length === 0 && (
-        <p className="mt-16 text-center text-muted">No events on sale yet. Check back soon.</p>
+      {result && (
+        <p className="mt-6 text-sm text-subtle" aria-live="polite">
+          {result.total === 0 ? "" : `${result.total} event${result.total === 1 ? "" : "s"}`}
+        </p>
+      )}
+
+      {result?.total === 0 && (
+        <div className="mt-6 rounded-[var(--card-radius)] border border-dashed border-line-strong px-6 py-14 text-center">
+          <p className="text-muted">{filtered ? "No events match those filters." : "No events on sale yet. Check back soon."}</p>
+          {filtered && <Button variant="secondary" className="mt-4" onClick={() => { setText(""); router.replace(pathname, { scroll: false }); }}>Clear filters</Button>}
+        </div>
       )}
 
       {featured && <FeaturedCard event={featured} />}
 
       {rest.length > 0 && (
-        <section aria-label="More events" className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {rest.map((e) => <EventCard key={e.id} event={e} />)}
+        <section aria-label="Events" className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {rest.map((e) => e && <EventCard key={e.id} event={e} />)}
         </section>
+      )}
+
+      {result && result.items.length < result.total && (
+        <div className="mt-10 text-center">
+          <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>{loadingMore ? "Loading…" : "Load more"}</Button>
+        </div>
       )}
     </>
   );
