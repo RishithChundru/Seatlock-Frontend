@@ -22,10 +22,22 @@ export default function BookingsPage() {
   const clearToast = useCallback(() => setToast(null), []);
 
   const pending = bookings?.some((b) => b.status === "CONFIRMED" && !b.ticketCode) ?? false;
+  // An upcoming ticket that hasn't been scanned yet: the gate could check it in at any moment.
+  const awaitingGate = bookings?.some((b) => b.status === "CONFIRMED" && b.ticketCode && !b.checkedInAt
+    && Date.parse(b.startsAt) > now - 6 * 3600_000) ?? false;
+  const checkedIn = useRef<Set<number> | null>(null);
 
   const load = useCallback(() => {
     api<Booking[]>("/api/bookings/me")
-      .then((list) => { setNow(Date.now()); setBookings(list); })
+      .then((list) => {
+        // Announce tickets that were scanned at the gate since the last refresh (not on first load).
+        const before = checkedIn.current;
+        const fresh = list.filter((b) => b.checkedInAt && before && !before.has(b.id));
+        if (fresh.length) setToast(`Checked in: ${fresh.map((b) => b.eventTitle).join(", ")}. Enjoy the show!`);
+        checkedIn.current = new Set(list.filter((b) => b.checkedInAt).map((b) => b.id));
+        setNow(Date.now());
+        setBookings(list);
+      })
       .catch((e) => setError(e.message));
     api<WaitlistItem[]>("/api/waitlist/me").then(setWaitlist).catch(() => setWaitlist([]));
   }, []);
@@ -33,11 +45,22 @@ export default function BookingsPage() {
   useEffect(() => {
     if (!session) return;
     load();
-    if (!pending) return;
-    // Tickets are issued asynchronously by the RabbitMQ consumer; refresh until every booking has one.
-    const t = setInterval(load, 2000);
+    // Issuing a code takes a second or two (RabbitMQ); a gate scan can happen any time. Poll only while
+    // something can still change, and only while the tab is visible.
+    // shortcut: polling; push per-user updates over SSE if many people keep this page open
+    const every = pending ? 2000 : awaitingGate ? 5000 : 0;
+    if (!every) return;
+    const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, every);
     return () => clearInterval(t);
-  }, [session, pending, load]);
+  }, [session, pending, awaitingGate, load]);
+
+  // Coming back to the tab (e.g. after walking through the gate) refreshes straight away.
+  useEffect(() => {
+    if (!session) return;
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [session, load]);
 
   useEffect(() => {
     if (cancelling) dialog.current?.showModal();
