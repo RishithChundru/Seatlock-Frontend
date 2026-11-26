@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, Booking, EventItem, Hold, inr, Seat, useSession, when } from "@/lib/api";
+import { api, API_URL, ApiError, Booking, EventItem, Hold, inr, Seat, useSession, WaitlistStatus, when } from "@/lib/api";
 import EventCover from "@/components/EventCover";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -11,7 +11,8 @@ import { Alert, Skeleton, Toast } from "@/components/ui/Feedback";
 import { ArrowLeftIcon, CalendarIcon, CheckIcon, ClockIcon, PinIcon, XIcon } from "@/components/ui/Icons";
 
 const MAX_SEATS = 10;
-const POLL_MS = 4000;
+// Changes arrive instantly over SSE; this slow poll only catches holds that expire on their own.
+const BACKUP_POLL_MS = 30_000;
 const HOLD_SECONDS = 300;
 
 export default function EventPage() {
@@ -28,44 +29,69 @@ function EventView() {
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<Booking | null>(null);
-  const [holdUntil, setHoldUntil] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [live, setLive] = useState(false);
+  const [waitlist, setWaitlist] = useState<WaitlistStatus | null>(null);
+  const [joining, setJoining] = useState(false);
   // One key per checkout attempt: a double-click or network retry replays instead of booking twice.
   const idemKey = useRef<string | null>(null);
-  // Seats we believe we hold, to notice when the server says a hold expired.
-  const mine = useRef<Set<number>>(new Set());
+  // Seats we believe we hold, to notice holds that expire or arrive from the waitlist.
+  const mine = useRef<Set<number> | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const loginUrl = `/login?next=/events/${id}`;
   const clearToast = useCallback(() => setToast(null), []);
+  const signedIn = session !== null;
 
   const load = useCallback(async () => {
     try {
-      const [e, s] = await Promise.all([api<EventItem>(`/api/events/${id}`), api<Seat[]>(`/api/events/${id}/seats`)]);
+      const [e, s, w] = await Promise.all([
+        api<EventItem>(`/api/events/${id}`),
+        api<Seat[]>(`/api/events/${id}/seats`),
+        signedIn ? api<WaitlistStatus>(`/api/events/${id}/waitlist`) : Promise.resolve(null),
+      ]);
       setEvent(e);
       setSeats(s);
+      setWaitlist(w);
       const held = new Set(s.filter((x) => x.mine).map((x) => x.id));
-      if ([...mine.current].some((x) => !held.has(x))) setToast("Your hold on a seat ran out. Pick it again if it's still free.");
+      const before = mine.current;
+      if (before) {
+        const gained = s.filter((x) => x.mine && !before.has(x.id));
+        if (gained.length) setToast(`Good news: seat ${gained.map((x) => x.row + x.number).join(", ")} from the waitlist is held for you.`);
+        else if ([...before].some((x) => !held.has(x))) setToast("Your hold on a seat ran out. Pick it again if it's still free.");
+      }
       mine.current = held;
-      if (held.size === 0) setHoldUntil(null);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [id]);
+  }, [id, signedIn]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load() only sets state after its fetch resolves
     load();
-    // shortcut: polling for live updates, swap for SSE/WebSocket push when traffic grows
-    const t = setInterval(load, POLL_MS);
-    return () => clearInterval(t);
-  }, [load]);
+    const t = setInterval(load, BACKUP_POLL_MS);
+    // Live updates: the server pings "seats" whenever this map changes; EventSource reconnects by itself.
+    const es = new EventSource(`${API_URL}/api/events/${id}/stream`);
+    es.addEventListener("seats", () => load());
+    es.onopen = () => setLive(true);
+    es.onerror = () => setLive(false);
+    return () => { clearInterval(t); es.close(); };
+  }, [load, id]);
+
+  const selected = useMemo(() => seats.filter((s) => s.mine), [seats]);
+  // The server is the clock: earliest expiry among my holds (also right after a reload or a waitlist offer).
+  const holdUntil = useMemo(() => {
+    const times = selected.map((s) => (s.holdExpiresAt ? Date.parse(s.holdExpiresAt) : NaN)).filter((t) => !Number.isNaN(t));
+    return times.length ? Math.min(...times) : null;
+  }, [selected]);
 
   useEffect(() => {
     if (holdUntil === null) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [holdUntil]);
+    // Refetch the moment the earliest hold runs out so the map and timer stay honest.
+    const expire = setTimeout(load, Math.max(0, holdUntil - Date.now()) + 500);
+    return () => { clearInterval(t); clearTimeout(expire); };
+  }, [holdUntil, load]);
 
   useEffect(() => {
     if (done) dialog.current?.showModal();
@@ -77,7 +103,6 @@ function EventView() {
     return [...m.entries()];
   }, [seats]);
 
-  const selected = useMemo(() => seats.filter((s) => s.mine), [seats]);
   const patch = (seatId: number, change: Partial<Seat>) =>
     setSeats((list) => list.map((s) => (s.id === seatId ? { ...s, ...change } : s)));
 
@@ -87,22 +112,21 @@ function EventView() {
     idemKey.current = null;
 
     if (s.mine) {
-      mine.current.delete(s.id);
-      patch(s.id, { status: "AVAILABLE", mine: false });
+      mine.current?.delete(s.id);
+      patch(s.id, { status: "AVAILABLE", mine: false, holdExpiresAt: null });
       api(`/api/holds/${s.id}`, { method: "DELETE" }).catch(() => load());
       return;
     }
     if (selected.length >= MAX_SEATS) { setToast(`You can hold up to ${MAX_SEATS} seats at once.`); return; }
 
-    mine.current.add(s.id);
-    patch(s.id, { status: "HELD", mine: true }); // optimistic; the server is the judge
+    mine.current?.add(s.id);
+    patch(s.id, { status: "HELD", mine: true, holdExpiresAt: null }); // optimistic; the server is the judge
     try {
       const h = await api<Hold>("/api/holds", { method: "POST", body: JSON.stringify({ eventId: Number(id), seatIds: [s.id] }) });
-      const exp = Date.parse(h.expiresAt);
-      setNow(exp - HOLD_SECONDS * 1000); // the hold just started; the 1s ticker takes over from here
-      setHoldUntil((u) => (u === null ? exp : Math.min(u, exp)));
+      setNow(Date.parse(h.expiresAt) - HOLD_SECONDS * 1000); // the hold just started; the 1s ticker takes over
+      patch(s.id, { holdExpiresAt: h.expiresAt });
     } catch (e) {
-      mine.current.delete(s.id);
+      mine.current?.delete(s.id);
       if (e instanceof ApiError && e.status === 401) { router.push(loginUrl); return; }
       setToast(e instanceof ApiError && e.status === 409 ? "Someone grabbed that seat a moment ago." : (e as Error).message);
       load();
@@ -121,7 +145,6 @@ function EventView() {
       });
       setDone(b);
       mine.current = new Set();
-      setHoldUntil(null);
       idemKey.current = null;
       load();
     } catch (e) {
@@ -130,6 +153,28 @@ function EventView() {
       else setError((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const joinWaitlist = async () => {
+    if (!session) { router.push(loginUrl); return; }
+    setJoining(true);
+    try {
+      setWaitlist(await api<WaitlistStatus>(`/api/events/${id}/waitlist`, { method: "POST" }));
+    } catch (e) {
+      setToast((e as Error).message);
+      load();
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const leaveWaitlist = async () => {
+    try {
+      await api(`/api/events/${id}/waitlist`, { method: "DELETE" });
+      setWaitlist({ joined: false, position: null, offeredSeat: null, offerExpiresAt: null });
+    } catch (e) {
+      setToast((e as Error).message);
     }
   };
 
@@ -145,6 +190,7 @@ function EventView() {
 
   const secondsLeft = holdUntil === null ? null : Math.max(0, Math.round((holdUntil - now) / 1000));
   const total = selected.length * event.priceCents;
+  const soldOut = event.availableSeats === 0;
 
   return (
     <div className="pt-6">
@@ -180,9 +226,13 @@ function EventView() {
         <section aria-labelledby="seats-h" className="min-w-0 rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-[var(--card-shadow)] sm:p-8">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h2 id="seats-h" className="font-display text-xl font-semibold">Choose your seats</h2>
-            <p className="flex items-center gap-1.5 text-xs text-subtle">
-              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-50" /><span className="relative inline-flex h-2 w-2 rounded-full bg-success" /></span>
-              Live availability
+            <p className="flex items-center gap-1.5 text-xs text-subtle" aria-live="polite">
+              {live ? (
+                <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-50" /><span className="relative inline-flex h-2 w-2 rounded-full bg-success" /></span>
+              ) : (
+                <span className="h-2 w-2 rounded-full bg-line-strong" />
+              )}
+              {live ? "Live" : "Reconnecting…"}
             </p>
           </div>
 
@@ -231,6 +281,26 @@ function EventView() {
 
         {/* Checkout */}
         <aside aria-labelledby="summary-h" className="lg:sticky lg:top-24 lg:self-start">
+          {soldOut && selected.length === 0 ? (
+            <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
+              <Badge tone="warning">Sold out</Badge>
+              <h2 id="summary-h" className="mt-3 font-display text-xl font-semibold">
+                {waitlist?.joined && waitlist.position ? `You're #${waitlist.position} in line` : "Join the waitlist"}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                {waitlist?.joined
+                  ? "If someone cancels, the seat is held for you for 5 minutes and shows up on this map. We'll email you too."
+                  : "If someone cancels, the next person in line gets their seat held for 5 minutes before it goes back on sale."}
+              </p>
+              {waitlist?.joined ? (
+                <Button variant="secondary" className="mt-5 w-full" onClick={leaveWaitlist}>Leave waitlist</Button>
+              ) : (
+                <Button size="lg" className="mt-5 w-full" onClick={joinWaitlist} disabled={joining}>
+                  {joining ? "Joining…" : session ? "Join the waitlist" : "Sign in to join"}
+                </Button>
+              )}
+            </div>
+          ) : (
           <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
             <h2 id="summary-h" className="font-display text-xl font-semibold">Your seats</h2>
 
@@ -274,6 +344,7 @@ function EventView() {
             </Button>
             <p className="mt-3 text-center text-xs text-subtle">Payment is simulated in this demo.</p>
           </div>
+          )}
         </aside>
       </div>
 

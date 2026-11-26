@@ -10,12 +10,21 @@ export type EventItem = {
   priceCents: number; totalSeats: number; availableSeats: number;
   description: string | null; imageUrl: string | null;
 };
-export type Seat = { id: number; row: string; number: number; status: "AVAILABLE" | "BOOKED" | "HELD"; mine: boolean };
+export type Seat = {
+  id: number; row: string; number: number; status: "AVAILABLE" | "BOOKED" | "HELD"; mine: boolean;
+  holdExpiresAt: string | null; // only on your own holds
+};
 export type Booking = {
   id: number; eventId: number; eventTitle: string; venue: string; startsAt: string;
   totalCents: number; createdAt: string; seats: string[]; ticketCode: string | null;
+  status: "CONFIRMED" | "CANCELLED"; cancelledAt: string | null;
 };
 export type Hold = { seatIds: number[]; expiresAt: string };
+export type WaitlistStatus = { joined: boolean; position: number | null; offeredSeat: string | null; offerExpiresAt: string | null };
+export type WaitlistItem = {
+  eventId: number; eventTitle: string; startsAt: string;
+  position: number | null; offeredSeat: string | null; offerExpiresAt: string | null;
+};
 type Session = { token: string; user: User };
 
 export class ApiError extends Error {

@@ -10,8 +10,12 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 
 - Event list with a featured event, category filters, cover photos and live availability
 - Interactive seat map: tapping a seat places a 5-minute hold with a countdown; seats in other people's carts are hatched
+- **Live updates:** the map listens to a Server-Sent Events stream (`EventSource`), so other people's holds and bookings appear instantly, with a "Live" indicator and automatic reconnect. A slow 30 s refetch catches holds that expire on their own.
+- The hold timer comes from the server, so it survives a reload and also covers seats offered from the waitlist
+- **Waitlist:** sold-out events show "Join the waitlist" and your place in line; when someone cancels, the seat appears as yours with a toast and a timer
+- **Cancel bookings** from Tickets (with a confirmation dialog); cancelled tickets show as refunded
 - Every checkout sends an `Idempotency-Key`, so a double-click or network retry never books twice
-- Tickets page shows "Issuing…" until the backend's RabbitMQ consumer issues the ticket code
+- Tickets page shows "Issuing…" until the backend's RabbitMQ consumer issues the ticket code, plus your waitlists and any seat held for you
 - Sign in / sign up with a show/hide password toggle; switching between them starts from a blank form
 - Admin page: create events and upload cover photos (JPEG/PNG/WebP, 2 MB max)
 - Light and dark themes (follows the system, with a toggle), keyboard focus rings, mobile layout
