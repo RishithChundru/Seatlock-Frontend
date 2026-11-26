@@ -38,7 +38,11 @@ npm run dev
 
 Open http://localhost:3000 and use **Fill in demo account** on the sign-in page. Sign in as `admin@seatlock.dev` / `Admin@12345` to reach the Admin page.
 
-Set `NEXT_PUBLIC_API_URL` if the backend isn't at `http://localhost:8080`.
+Set `NEXT_PUBLIC_API_URL` (copy [`.env.example`](.env.example) to `.env.local`) if the backend isn't at `http://localhost:8080`.
+
+## Deploy
+
+Vercel: import this repo, set `NEXT_PUBLIC_API_URL` to the deployed API URL, deploy. Vercel redeploys on every push to `main` and creates a preview for every PR; [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs lint and a production build as the quality gate. The full stack walkthrough (Neon, Upstash, CloudAMQP, Render, Vercel) is in the backend repo's `DEPLOY.md`.
 
 ## Structure
 
