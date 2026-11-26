@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { api, setSession, useSession } from "@/lib/api";
 import Badge from "@/components/ui/Badge";
@@ -12,6 +13,7 @@ const EMPTY = { current: "", next: "", confirm: "" };
 
 export default function AccountPage() {
   const session = useSession();
+  const router = useRouter();
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -59,7 +61,7 @@ export default function AccountPage() {
         </dl>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button href="/bookings" variant="secondary">Your tickets</Button>
-          <Button variant="ghost" onClick={() => setSession(null)}>Sign out</Button>
+          <Button variant="ghost" onClick={() => { setSession(null); router.replace("/"); }}>Sign out</Button>
         </div>
       </section>
 

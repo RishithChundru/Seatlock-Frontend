@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { setSession, useSession } from "@/lib/api";
 import ThemeToggle from "./ThemeToggle";
 import Button from "./ui/Button";
@@ -9,6 +9,12 @@ import Button from "./ui/Button";
 export default function Nav() {
   const session = useSession();
   const path = usePathname();
+  const router = useRouter();
+  // Leave whatever page you were on (admin, tickets, account) instead of showing its signed-out state.
+  const signOut = () => {
+    setSession(null);
+    router.replace("/");
+  };
 
   const link = (href: string, label: string) => {
     const active = href === "/" ? path === "/" || path.startsWith("/events") : path.startsWith(href);
@@ -45,7 +51,7 @@ export default function Nav() {
           {session ? (
             <>
               <Link href="/account" className="hidden rounded-md px-2 py-1 text-sm text-muted transition-colors hover:text-fg md:inline">{session.user.name}</Link>
-              <Button variant="ghost" size="sm" onClick={() => setSession(null)}>Sign out</Button>
+              <Button variant="ghost" size="sm" onClick={signOut}>Sign out</Button>
             </>
           ) : (
             <Button href="/login" size="sm">Sign in</Button>
