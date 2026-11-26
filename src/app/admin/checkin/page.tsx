@@ -7,7 +7,7 @@ import { api, ApiError, CheckInResult, EventItem, useSession, when } from "@/lib
 import Button from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
-import { ArrowLeftIcon, CheckIcon } from "@/components/ui/Icons";
+import { ArrowLeftIcon, CheckIcon, XIcon } from "@/components/ui/Icons";
 
 type Outcome = { kind: "ok" | "repeat" | "refused"; title: string; detail: string };
 
@@ -136,15 +136,37 @@ export default function CheckInPage() {
             ? <Button type="button" variant="secondary" onClick={stopScan}>Stop camera</Button>
             : <Button type="button" variant="secondary" onClick={startScan}>Scan QR</Button>)}
         </div>
-        <div className={scanning ? "relative overflow-hidden rounded-md bg-black" : "hidden"}>
-          <video ref={video} muted playsInline className="block w-full" aria-label="Camera preview" />
-          {/* Viewfinder: where to hold the ticket */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
-            <div className="aspect-square w-3/5 max-w-60 rounded-lg border-2 border-white/90 shadow-[0_0_0_9999px_rgb(0_0_0/0.35)]" />
-          </div>
-          <p className="absolute inset-x-0 bottom-2 text-center text-xs text-white/90" aria-live="polite">Hold the ticket&apos;s QR code inside the square</p>
-        </div>
       </form>
+
+      {/* Full-screen scanner: the camera fills the screen, like a phone's camera app. */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Scan a ticket QR code"
+        className={scanning ? "fixed inset-0 z-[60] bg-black" : "hidden"}
+        onKeyDown={(e) => { if (e.key === "Escape") stopScan(); }}
+      >
+        <video ref={video} muted playsInline className="h-full w-full object-cover" aria-label="Camera preview" />
+        {/* Viewfinder: dims everything outside the square */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
+          <div className="aspect-square w-[70vmin] max-w-80 rounded-2xl border-[3px] border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.45)]" />
+        </div>
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] text-white">
+          <span className="text-sm font-medium">Scan ticket</span>
+          <button
+            type="button"
+            onClick={stopScan}
+            autoFocus
+            aria-label="Close scanner"
+            className="grid h-11 w-11 place-items-center rounded-full bg-white/15 backdrop-blur transition-colors hover:bg-white/25"
+          >
+            <XIcon className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="absolute inset-x-0 bottom-0 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-sm text-white" aria-live="polite">
+          Hold the ticket&apos;s QR code inside the square
+        </p>
+      </div>
 
       {outcome && (
         <div role="status" aria-live="assertive" className={`mt-6 flex items-start gap-3 rounded-[var(--card-radius)] border p-5 ${tone}`}>
