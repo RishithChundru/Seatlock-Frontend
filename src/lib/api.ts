@@ -5,20 +5,32 @@ import { useSyncExternalStore } from "react";
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export type User = { id: number; email: string; name: string; role: "USER" | "ADMIN" };
+export type Tier = "VIP" | "PREMIUM" | "STANDARD";
 export type EventItem = {
   id: number; title: string; venue: string; category: string; startsAt: string;
   priceCents: number; totalSeats: number; availableSeats: number;
   description: string | null; imageUrl: string | null;
+  city: string; tiers: { tier: Tier; priceCents: number }[]; // most expensive first; STANDARD always present
+};
+export type EventPage = {
+  items: EventItem[]; total: number; page: number; size: number; cities: string[]; categories: string[];
 };
 export type Seat = {
   id: number; row: string; number: number; status: "AVAILABLE" | "BOOKED" | "HELD"; mine: boolean;
   holdExpiresAt: string | null; // only on your own holds
+  tier: Tier; priceCents: number;
 };
 export type Booking = {
   id: number; eventId: number; eventTitle: string; venue: string; startsAt: string;
   totalCents: number; createdAt: string; seats: string[]; ticketCode: string | null;
-  status: "CONFIRMED" | "CANCELLED"; cancelledAt: string | null;
+  status: "CONFIRMED" | "CANCELLED"; cancelledAt: string | null; checkedInAt: string | null;
 };
+export type CheckInResult = {
+  result: "ADMITTED" | "ALREADY_CHECKED_IN"; bookingId: number; eventTitle: string; holder: string;
+  seats: string[]; checkedInAt: string;
+};
+
+export const TIER_LABEL: Record<Tier, string> = { VIP: "VIP", PREMIUM: "Premium", STANDARD: "Standard" };
 export type Hold = { seatIds: number[]; expiresAt: string };
 export type WaitlistStatus = { joined: boolean; position: number | null; offeredSeat: string | null; offerExpiresAt: string | null };
 export type WaitlistItem = {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, API_URL, ApiError, Booking, EventItem, Hold, inr, Seat, useSession, WaitlistStatus, when } from "@/lib/api";
+import { api, API_URL, ApiError, Booking, EventItem, Hold, inr, Seat, TIER_LABEL, useSession, WaitlistStatus, when } from "@/lib/api";
 import EventCover from "@/components/EventCover";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -189,7 +189,12 @@ function EventView() {
   }
 
   const secondsLeft = holdUntil === null ? null : Math.max(0, Math.round((holdUntil - now) / 1000));
-  const total = selected.length * event.priceCents;
+  const total = selected.reduce((sum, s) => sum + s.priceCents, 0);
+  const tiered = event.tiers.length > 1;
+  // Checkout lines grouped by tier: "2 × VIP ₹2,998".
+  const lines = event.tiers
+    .map((t) => ({ ...t, count: selected.filter((s) => s.tier === t.tier).length }))
+    .filter((l) => l.count > 0);
   const soldOut = event.availableSeats === 0;
 
   return (
@@ -212,9 +217,17 @@ function EventView() {
             <div className="flex items-center gap-2.5"><dt className="sr-only">Venue</dt><PinIcon className="text-subtle" /><dd>{event.venue}</dd></div>
           </dl>
           {event.description && <p className="mt-5 leading-relaxed text-muted">{event.description}</p>}
-          <div className="mt-auto flex items-baseline gap-2 border-t border-line pt-5 max-md:mt-6">
-            <span className="font-display text-3xl font-semibold tabular">{inr(event.priceCents)}</span>
-            <span className="text-sm text-subtle">per seat · {event.availableSeats} of {event.totalSeats} available</span>
+          <div className="mt-auto border-t border-line pt-5 max-md:mt-6">
+            <div className="flex items-baseline gap-2">
+              {tiered && <span className="text-sm text-subtle">from</span>}
+              <span className="font-display text-3xl font-semibold tabular">{inr(event.priceCents)}</span>
+              <span className="text-sm text-subtle">per seat · {event.availableSeats} of {event.totalSeats} available</span>
+            </div>
+            {tiered && (
+              <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted tabular">
+                {event.tiers.map((t) => <span key={t.tier}>{TIER_LABEL[t.tier]} {inr(t.priceCents)}</span>)}
+              </p>
+            )}
           </div>
         </div>
       </header>
@@ -256,8 +269,10 @@ function EventView() {
                         onClick={() => toggle(s)}
                         disabled={state === "booked" || state === "held"}
                         aria-pressed={s.mine}
-                        aria-label={`Seat ${s.row}${s.number}, ${label}`}
+                        aria-label={`Seat ${s.row}${s.number}, ${TIER_LABEL[s.tier]} ${inr(s.priceCents)}, ${label}`}
+                        title={`${s.row}${s.number} · ${TIER_LABEL[s.tier]} · ${inr(s.priceCents)}`}
                         data-state={state}
+                        data-tier={s.tier}
                         className={`seat ${i === Math.floor(list.length / 2) ? "ml-4" : ""}`}
                       >
                         {s.number}
@@ -277,6 +292,15 @@ function EventView() {
               </li>
             ))}
           </ul>
+          {tiered && (
+            <ul aria-label="Seat prices" className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-muted tabular">
+              {event.tiers.map((t) => (
+                <li key={t.tier} className="flex items-center gap-2">
+                  <span data-state="available" data-tier={t.tier} className="seat !h-4 !w-4" aria-hidden /> {TIER_LABEL[t.tier]} {inr(t.priceCents)}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         {/* Checkout */}
@@ -334,7 +358,13 @@ function EventView() {
             )}
 
             <dl className="mt-6 space-y-2 border-t border-line pt-4 text-sm">
-              <div className="flex justify-between text-muted"><dt>{selected.length} × {inr(event.priceCents)}</dt><dd className="tabular">{inr(total)}</dd></div>
+              {lines.length === 0 && <div className="flex justify-between text-muted"><dt>0 seats</dt><dd className="tabular">{inr(0)}</dd></div>}
+              {lines.map((l) => (
+                <div key={l.tier} className="flex justify-between text-muted">
+                  <dt>{l.count} × {tiered ? `${TIER_LABEL[l.tier]} ` : ""}{inr(l.priceCents)}</dt>
+                  <dd className="tabular">{inr(l.count * l.priceCents)}</dd>
+                </div>
+              ))}
               <div className="flex justify-between text-muted"><dt>Booking fee</dt><dd>Free</dd></div>
               <div className="flex items-baseline justify-between pt-2"><dt className="font-medium">Total</dt><dd className="font-display text-2xl font-semibold tabular">{inr(total)}</dd></div>
             </dl>

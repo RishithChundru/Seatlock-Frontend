@@ -7,6 +7,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Alert, Skeleton, Toast } from "@/components/ui/Feedback";
 import { CalendarIcon, ClockIcon, PinIcon, TicketIcon } from "@/components/ui/Icons";
+import TicketQr from "@/components/TicketQr";
 
 export default function BookingsPage() {
   const session = useSession();
@@ -56,6 +57,11 @@ export default function BookingsPage() {
       setBusy(false);
     }
   };
+
+  // Upcoming = confirmed and not started yet; everything else (past or cancelled) goes below.
+  const upcoming = (bookings ?? []).filter((b) => b.status === "CONFIRMED" && Date.parse(b.startsAt) > now)
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const past = (bookings ?? []).filter((b) => !upcoming.includes(b));
 
   if (!session) {
     return (
@@ -110,52 +116,10 @@ export default function BookingsPage() {
             <Button href="/" variant="secondary" className="mt-4">Browse events</Button>
           </div>
         )}
-        {bookings?.map((b) => {
-          const cancelled = b.status === "CANCELLED";
-          const upcoming = Date.parse(b.startsAt) > now;
-          return (
-            <article
-              key={b.id}
-              className={`flex flex-col overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] sm:flex-row ${cancelled ? "opacity-70" : ""}`}
-            >
-              <div className="flex-1 p-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/events/${b.eventId}`} className="font-display text-xl font-semibold tracking-tight hover:text-accent-fg">{b.eventTitle}</Link>
-                  {cancelled && <Badge tone="danger">Cancelled</Badge>}
-                </div>
-                <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-                  <span className="inline-flex items-center gap-1.5 tabular"><CalendarIcon className="text-subtle" />{when(b.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>
-                  <span className="inline-flex items-center gap-1.5"><PinIcon className="text-subtle" />{b.venue}</span>
-                </p>
-                <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <span className="eyebrow mr-1">Seats</span>
-                  {b.seats.map((s) => <span key={s} className={`rounded-sm bg-sunken px-2 py-0.5 font-mono text-sm ${cancelled ? "line-through" : ""}`}>{s}</span>)}
-                  {!cancelled && upcoming && (
-                    <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setCancelling(b)}>Cancel booking</Button>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-6 border-t border-dashed border-line-strong px-6 py-5 sm:w-56 sm:flex-col sm:items-start sm:justify-center sm:border-l sm:border-t-0">
-                <div>
-                  <p className="eyebrow">Ticket code</p>
-                  {cancelled ? (
-                    <p className="mt-1 font-mono text-[15px] text-subtle line-through">{b.ticketCode ?? "—"}</p>
-                  ) : b.ticketCode ? (
-                    <p className="mt-1 font-mono text-[15px] font-medium tracking-wide text-fg">{b.ticketCode}</p>
-                  ) : (
-                    <p className="mt-1 flex items-center gap-2 text-sm text-warning" aria-live="polite">
-                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> Issuing…
-                    </p>
-                  )}
-                </div>
-                <div className="sm:mt-4">
-                  <p className="eyebrow">{cancelled ? "Refunded" : "Paid"}</p>
-                  <p className="mt-1 font-display text-lg font-semibold tabular">{inr(b.totalCents)}</p>
-                </div>
-              </div>
-            </article>
-          );
-        })}
+        {upcoming.length > 0 && <h2 className="pt-2 font-display text-xl font-semibold">Upcoming</h2>}
+        {upcoming.map((b) => <TicketCard key={b.id} b={b} upcoming onCancel={() => setCancelling(b)} />)}
+        {past.length > 0 && <h2 className="pt-6 font-display text-xl font-semibold">Past and cancelled</h2>}
+        {past.map((b) => <TicketCard key={b.id} b={b} upcoming={false} />)}
       </div>
 
       <Toast message={toast} onDone={clearToast} />
@@ -181,5 +145,50 @@ export default function BookingsPage() {
         )}
       </dialog>
     </div>
+  );
+}
+
+function TicketCard({ b, upcoming, onCancel }: { b: Booking; upcoming: boolean; onCancel?: () => void }) {
+  const cancelled = b.status === "CANCELLED";
+  return (
+    <article
+      className={`flex flex-col overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)] sm:flex-row ${upcoming ? "" : "opacity-75"}`}
+    >
+      <div className="flex-1 p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/events/${b.eventId}`} className="font-display text-xl font-semibold tracking-tight hover:text-accent-fg">{b.eventTitle}</Link>
+          {cancelled && <Badge tone="danger">Cancelled</Badge>}
+          {b.checkedInAt && <Badge tone="success">Checked in {when(b.checkedInAt, { hour: "numeric", minute: "2-digit" })}</Badge>}
+        </div>
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+          <span className="inline-flex items-center gap-1.5 tabular"><CalendarIcon className="text-subtle" />{when(b.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>
+          <span className="inline-flex items-center gap-1.5"><PinIcon className="text-subtle" />{b.venue}</span>
+        </p>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <span className="eyebrow mr-1">Seats</span>
+          {b.seats.map((s) => <span key={s} className={`rounded-sm bg-sunken px-2 py-0.5 font-mono text-sm ${cancelled ? "line-through" : ""}`}>{s}</span>)}
+          {upcoming && !b.checkedInAt && onCancel && (
+            <Button variant="ghost" size="sm" className="ml-auto" onClick={onCancel}>Cancel booking</Button>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-5 border-t border-dashed border-line-strong px-6 py-5 sm:w-64 sm:border-l sm:border-t-0">
+        <div className="min-w-0">
+          <p className="eyebrow">Ticket code</p>
+          {cancelled ? (
+            <p className="mt-1 font-mono text-[15px] text-subtle line-through">{b.ticketCode ?? "—"}</p>
+          ) : b.ticketCode ? (
+            <p className="mt-1 whitespace-nowrap font-mono text-[15px] font-medium tracking-wide text-fg">{b.ticketCode}</p>
+          ) : (
+            <p className="mt-1 flex items-center gap-2 text-sm text-warning" aria-live="polite">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden /> Issuing…
+            </p>
+          )}
+          <p className="eyebrow mt-4">{cancelled ? "Refunded" : "Paid"}</p>
+          <p className="mt-1 font-display text-lg font-semibold tabular">{inr(b.totalCents)}</p>
+        </div>
+        {upcoming && b.ticketCode && !cancelled && <TicketQr code={b.ticketCode} size={96} />}
+      </div>
+    </article>
   );
 }

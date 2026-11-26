@@ -8,7 +8,13 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 
 ## Features
 
-- Event list with a featured event, category filters, cover photos and live availability
+- Event list with a featured event, cover photos and live availability
+- **Search and filters:** text, city, date window, max price and category, all kept in the URL (shareable), with "Load more" pagination
+- **Seat tiers:** VIP and Premium rows are outlined on the map, with a price legend and per-tier checkout lines
+- **QR tickets:** each upcoming ticket shows a QR of its code; tickets are split into Upcoming and Past, and show "Checked in"
+- **Gate check-in** (admin): type the code, or scan the QR with the camera where the browser supports `BarcodeDetector`. Shows green Admit, amber "Already used at…" or red refusal
+- **Admin:** create events with tiers, upload, replace or remove covers, delete events
+- **Account:** profile and change password
 - Interactive seat map: tapping a seat places a 5-minute hold with a countdown; seats in other people's carts are hatched
 - **Live updates:** the map listens to a Server-Sent Events stream (`EventSource`), so other people's holds and bookings appear instantly, with a "Live" indicator and automatic reconnect. A slow 30 s refetch catches holds that expire on their own.
 - The hold timer comes from the server, so it survives a reload and also covers seats offered from the waitlist
@@ -99,7 +105,10 @@ Type: Fraunces (display), Geist (UI), Geist Mono (seat labels, ticket codes).
 | `src/app/events/[id]/page.tsx` | Seat map and checkout |
 | `src/app/login/page.tsx` | Sign in / sign up |
 | `src/app/bookings/page.tsx` | Tickets |
-| `src/app/admin/page.tsx` | Create events, upload covers (admins only) |
+| `src/app/admin/page.tsx` | Create events (with tiers), manage covers, delete events (admins only) |
+| `src/app/admin/checkin/page.tsx` | Gate check-in by code or QR scan |
+| `src/app/account/page.tsx` | Profile and change password |
+| `src/components/TicketQr.tsx` | QR code for a ticket |
 | `src/styles/tokens.css` | Design tokens |
 | `src/components/ui/*` | Component library |
 | `src/lib/api.ts` | API client, session store, formatters |
