@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import jsQR from "jsqr";
+import { makeConfirmer, viewfinderCrop } from "@/lib/scan";
 import { api, ApiError, CheckInResult, EventItem, useSession, when } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
@@ -16,7 +17,7 @@ type Outcome = { kind: "ok" | "repeat" | "refused"; title: string; detail: strin
 type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 const noSubscribe = () => () => {};
 const Barcode = () => (globalThis as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
-const MAX_FRAME_WIDTH = 640; // decode a downscaled frame: plenty for a QR held up to the camera, and fast
+const MAX_CROP = 480; // decode the viewfinder crop at most this wide: plenty for a QR filling the square, and fast
 
 export default function CheckInPage() {
   const session = useSession();
@@ -30,6 +31,7 @@ export default function CheckInPage() {
   const canScan = useSyncExternalStore(noSubscribe,
     () => window.isSecureContext && Boolean(navigator.mediaDevices?.getUserMedia), () => false);
   const video = useRef<HTMLVideoElement>(null);
+  const square = useRef<HTMLDivElement>(null);
   const stream = useRef<MediaStream | null>(null);
 
   useEffect(() => {
@@ -78,21 +80,27 @@ export default function CheckInPage() {
       const detector = Native ? new Native({ formats: ["qr_code"] }) : null;
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const confirm = makeConfirmer(2);
 
+      // Decode only what's inside the on-screen square: a QR code elsewhere in view is ignored.
       const readFrame = async (): Promise<string | null> => {
-        if (detector) return (await detector.detect(v).catch(() => []))[0]?.rawValue ?? null;
-        if (!ctx || v.readyState < 2 || !v.videoWidth) return null;
-        const scale = Math.min(1, MAX_FRAME_WIDTH / v.videoWidth);
-        canvas.width = Math.round(v.videoWidth * scale);
-        canvas.height = Math.round(v.videoHeight * scale);
-        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        const box = square.current;
+        if (!ctx || !box || v.readyState < 2 || !v.videoWidth) return null;
+        const { sx, sy, sw, sh } = viewfinderCrop(v.getBoundingClientRect(), box.getBoundingClientRect(), v.videoWidth, v.videoHeight);
+        if (sw < 40 || sh < 40) return null;
+        const scale = Math.min(1, MAX_CROP / sw);
+        canvas.width = Math.round(sw * scale);
+        canvas.height = Math.round(sh * scale);
+        ctx.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+        if (detector) return (await detector.detect(canvas).catch(() => []))[0]?.rawValue ?? null;
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
         return jsQR(frame.data, frame.width, frame.height, { inversionAttempts: "dontInvert" })?.data ?? null;
       };
 
       const tick = async () => {
         if (!stream.current) return; // stopped
-        const text = await readFrame();
+        // Submit only after two consecutive frames agree: no accidental reads of a code passing by.
+        const text = confirm(await readFrame());
         if (text) { stopScan(); checkIn(text); return; }
         requestAnimationFrame(tick);
       };
@@ -149,7 +157,7 @@ export default function CheckInPage() {
         <video ref={video} muted playsInline className="h-full w-full object-cover" aria-label="Camera preview" />
         {/* Viewfinder: dims everything outside the square */}
         <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
-          <div className="aspect-square w-[70vmin] max-w-80 rounded-2xl border-[3px] border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.45)]" />
+          <div ref={square} className="aspect-square w-[70vmin] max-w-80 rounded-2xl border-[3px] border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.45)]" />
         </div>
         <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] text-white">
           <span className="text-sm font-medium">Scan ticket</span>
@@ -164,7 +172,7 @@ export default function CheckInPage() {
           </button>
         </div>
         <p className="absolute inset-x-0 bottom-0 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-sm text-white" aria-live="polite">
-          Hold the ticket&apos;s QR code inside the square
+          Fit the ticket&apos;s QR code inside the square. Only codes inside it are read.
         </p>
       </div>
 
