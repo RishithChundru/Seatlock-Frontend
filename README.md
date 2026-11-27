@@ -19,7 +19,8 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Live updates:** the map listens to a Server-Sent Events stream (`EventSource`), so other people's holds and bookings appear instantly, with a "Live" indicator and automatic reconnect. A slow 30 s refetch catches holds that expire on their own.
 - The hold timer comes from the server, so it survives a reload and also covers seats offered from the waitlist
 - **Waitlist:** sold-out events show "Join the waitlist" and your place in line; when someone cancels, the seat appears as yours with a toast and a timer
-- **Cancel bookings** from Tickets (with a confirmation dialog); cancelled tickets show as refunded
+- **Cancel bookings** from Tickets until 3 days before the event (with a confirmation dialog); cancelled tickets show as refunded
+- **Share a ticket:** a link to a public page (`/t/<token>`, not indexed) with the QR, for whoever is going instead
 - **Payments with Razorpay Checkout** (test mode): the server creates the order and verifies the signed result before booking; closing the popup keeps your hold, and paying again reopens the same order. With payments off on the API, checkout books instantly
 - Every checkout sends an `Idempotency-Key`, so a double-click or network retry never books twice
 - Tickets page shows "Issuing…" until the backend's RabbitMQ consumer issues the ticket code, plus your waitlists and any seat held for you

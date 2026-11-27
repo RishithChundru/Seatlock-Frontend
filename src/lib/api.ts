@@ -26,10 +26,16 @@ export type Booking = {
   id: number; eventId: number; eventTitle: string; venue: string; startsAt: string;
   totalCents: number; createdAt: string; seats: string[]; ticketCode: string | null;
   status: "CONFIRMED" | "CANCELLED"; cancelledAt: string | null; checkedInAt: string | null;
+  cancellableUntil: string; // after this, cancelling is closed; sharing is the way out
 };
 /** booking when done right away (payments off / free); otherwise a Razorpay order to pay. */
 export type CheckoutResponse = {
   booking: Booking | null; orderId: string | null; amountCents: number | null; currency: string | null; keyId: string | null;
+};
+/** Public view of a shared ticket (no email, price or booking id). ticketCode is null once cancelled. */
+export type SharedTicket = {
+  eventId: number; eventTitle: string; venue: string; startsAt: string; seats: string[];
+  ticketCode: string | null; status: "CONFIRMED" | "CANCELLED"; checkedInAt: string | null; sharedBy: string;
 };
 export type CheckInResult = {
   result: "ADMITTED" | "ALREADY_CHECKED_IN"; bookingId: number; eventTitle: string; holder: string;

@@ -81,6 +81,23 @@ export default function BookingsPage() {
     }
   };
 
+  // A link anyone can open to see (and use) the ticket: the way to pass it on once cancelling has closed.
+  const share = async (b: Booking) => {
+    try {
+      const { token } = await api<{ token: string }>(`/api/bookings/${b.id}/share`, { method: "POST" });
+      const url = `${window.location.origin}/t/${token}`;
+      const text = `Ticket for ${b.eventTitle} (${b.seats.join(", ")})`;
+      if (navigator.share) {
+        await navigator.share({ title: text, text, url }).catch(() => undefined); // closing the share sheet is fine
+      } else {
+        await navigator.clipboard.writeText(url);
+        setToast("Ticket link copied. Anyone with the link can use this ticket, so only send it to the person going.");
+      }
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+  };
+
   // Upcoming = confirmed and not started yet; everything else (past or cancelled) goes below.
   const upcoming = (bookings ?? []).filter((b) => b.status === "CONFIRMED" && Date.parse(b.startsAt) > now)
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
@@ -140,9 +157,12 @@ export default function BookingsPage() {
           </div>
         )}
         {upcoming.length > 0 && <h2 className="pt-2 font-display text-xl font-semibold">Upcoming</h2>}
-        {upcoming.map((b) => <TicketCard key={b.id} b={b} upcoming onCancel={() => setCancelling(b)} />)}
+        {upcoming.map((b) => (
+          <TicketCard key={b.id} b={b} upcoming now={now} onShare={() => share(b)}
+            onCancel={Date.parse(b.cancellableUntil) > now ? () => setCancelling(b) : undefined} />
+        ))}
         {past.length > 0 && <h2 className="pt-6 font-display text-xl font-semibold">Past and cancelled</h2>}
-        {past.map((b) => <TicketCard key={b.id} b={b} upcoming={false} />)}
+        {past.map((b) => <TicketCard key={b.id} b={b} upcoming={false} now={now} />)}
       </div>
 
       <Toast message={toast} onDone={clearToast} />
@@ -171,7 +191,9 @@ export default function BookingsPage() {
   );
 }
 
-function TicketCard({ b, upcoming, onCancel }: { b: Booking; upcoming: boolean; onCancel?: () => void }) {
+function TicketCard({ b, upcoming, now, onCancel, onShare }: {
+  b: Booking; upcoming: boolean; now: number; onCancel?: () => void; onShare?: () => void;
+}) {
   const cancelled = b.status === "CANCELLED";
   return (
     <article
@@ -190,10 +212,20 @@ function TicketCard({ b, upcoming, onCancel }: { b: Booking; upcoming: boolean; 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <span className="eyebrow mr-1">Seats</span>
           {b.seats.map((s) => <span key={s} className={`rounded-sm bg-sunken px-2 py-0.5 font-mono text-sm ${cancelled ? "line-through" : ""}`}>{s}</span>)}
-          {upcoming && !b.checkedInAt && onCancel && (
-            <Button variant="ghost" size="sm" className="ml-auto" onClick={onCancel}>Cancel booking</Button>
+          {upcoming && !b.checkedInAt && (
+            <span className="ml-auto flex items-center gap-1">
+              {onShare && b.ticketCode && <Button variant="ghost" size="sm" onClick={onShare}>Share ticket</Button>}
+              {onCancel && <Button variant="ghost" size="sm" onClick={onCancel}>Cancel booking</Button>}
+            </span>
           )}
         </div>
+        {upcoming && !b.checkedInAt && (
+          <p className="mt-3 text-xs text-subtle">
+            {Date.parse(b.cancellableUntil) > now
+              ? `Free cancellation until ${when(b.cancellableUntil, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}.`
+              : "Cancellation has closed (3 days before the event). Can't go? Share the ticket with someone instead."}
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-between gap-5 border-t border-dashed border-line-strong px-6 py-5 sm:w-64 sm:border-l sm:border-t-0">
         <div className="min-w-0">
