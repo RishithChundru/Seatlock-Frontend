@@ -20,7 +20,8 @@ export type Organizer = Host & {
   status: OrganizerStatus; reviewNote: string | null; createdAt: string; reviewedAt: string | null;
   accountName: string; accountEmail: string;
 };
-export type StaffMember = { id: number; name: string; email: string };
+/** ACTIVE: id is the staff account's. INVITED / EXPIRED: id is the invite's (resend or cancel it). */
+export type StaffMember = { id: number; name: string; email: string; status: "ACTIVE" | "INVITED" | "EXPIRED"; inviteExpiresAt: string | null };
 export type Tier = "VIP" | "PREMIUM" | "STANDARD";
 export type EventItem = {
   id: number; title: string; venue: string; category: string; startsAt: string;

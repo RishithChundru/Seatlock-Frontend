@@ -32,20 +32,19 @@ export default function AdminPage() {
   const role = session?.user.role;
   const superAdmin = role === "ADMIN";
   const status = session?.user.organizerStatus;
-  const readOnly = role === "ORGANIZER" && status !== "APPROVED"; // pending, needs changes or suspended
+  const staff = role === "STAFF"; // gate staff: their organizer's events, read-only, plus the scanner
+  const pendingOrganizer = role === "ORGANIZER" && status !== "APPROVED"; // pending, needs changes or suspended
+  const readOnly = staff || pendingOrganizer;
   const [requests, setRequests] = useState(0);
   useEffect(() => {
     if (superAdmin) api<unknown[]>("/api/admin/organizers?status=PENDING").then((l) => setRequests(l.length)).catch(() => undefined);
   }, [superAdmin]);
   // The API returns only what this user may manage: every event for the super admin, their own for an organizer.
   const load = useCallback(() => api<ManagedEvent[]>("/api/manage/events").then(setEvents).catch((e) => setError(e.message)), []);
-  useEffect(() => { if (role === "ADMIN" || role === "ORGANIZER") load(); }, [role, load]);
+  useEffect(() => { if (role === "ADMIN" || role === "ORGANIZER" || role === "STAFF") load(); }, [role, load]);
   useEffect(() => { if (deleting) dialog.current?.showModal(); }, [deleting]);
 
-  if (role === "STAFF") {
-    return <div className="mx-auto max-w-md pt-24 text-center"><p className="text-muted">Gate staff use the scanner.</p><Button href="/admin/checkin" className="mt-4">Open check-in</Button></div>;
-  }
-  if (role !== "ADMIN" && role !== "ORGANIZER") {
+  if (role !== "ADMIN" && role !== "ORGANIZER" && role !== "STAFF") {
     return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">This page is for organizers. <Link className="underline" href="/organizer">Apply to host events</Link>.</Alert></div>;
   }
 
@@ -122,8 +121,8 @@ export default function AdminPage() {
     <div className="pt-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">{superAdmin ? "Super admin" : "Organizer dashboard"}</p>
-          <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">{superAdmin ? "All events" : "Your events"}</h1>
+          <p className="eyebrow">{superAdmin ? "Super admin" : staff ? "Gate staff · read-only" : "Organizer dashboard"}</p>
+          <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">{superAdmin ? "All events" : staff ? "Events you work at" : "Your events"}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           {superAdmin && (
@@ -131,13 +130,14 @@ export default function AdminPage() {
               Organizer requests{requests > 0 && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs text-white tabular">{requests}</span>}
             </Button>
           )}
-          {!superAdmin && !readOnly && <Button href="/admin/staff" variant="secondary">Gate staff</Button>}
-          {!superAdmin && <Button href="/organizer" variant="ghost">{readOnly ? "Application status" : "Public profile"}</Button>}
-          {!readOnly && <Button href="/admin/checkin" variant="secondary"><TicketIcon /> Check in tickets</Button>}
+          {role === "ORGANIZER" && !readOnly && <Button href="/admin/staff" variant="secondary">Gate staff</Button>}
+          {role === "ORGANIZER" && <Button href="/organizer" variant="ghost">{readOnly ? "Application status" : "Public profile"}</Button>}
+          {!pendingOrganizer && <Button href="/admin/checkin" variant={staff ? "primary" : "secondary"}><TicketIcon /> Check in tickets</Button>}
         </div>
       </div>
 
-      {readOnly && (
+      {staff && <p className="mt-4 text-sm text-muted">You can see these events and scan their tickets, but not change anything.</p>}
+      {pendingOrganizer && (
         <div className="mt-6">
           <Alert tone="warning">
             {status === "PENDING" && <><span className="font-medium">Your organizer account is waiting for approval.</span> You can look around, but creating events, adding staff and check-in unlock once we approve you. We&apos;ll email you.</>}
@@ -147,13 +147,13 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_380px]">
+      <div className={`mt-10 grid gap-10 ${staff ? "" : "lg:grid-cols-[1fr_380px]"}`}>
         <section aria-labelledby="list-h" className="min-w-0">
-          <h2 id="list-h" className="font-display text-xl font-semibold">Events, sales and covers</h2>
-          <p className="mt-1 text-sm text-muted">JPEG, PNG or WebP, up to 2 MB. Landscape (3:2) photos look best.</p>
+          <h2 id="list-h" className="font-display text-xl font-semibold">{staff ? "Events and sales" : "Events, sales and covers"}</h2>
+          {!staff && <p className="mt-1 text-sm text-muted">JPEG, PNG or WebP, up to 2 MB. Landscape (3:2) photos look best.</p>}
           <ul className="mt-5 divide-y divide-line overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)]">
             {events === null && [0, 1, 2].map((i) => <li key={i} className="p-4"><Skeleton className="h-16" /></li>)}
-            {events?.length === 0 && <li className="p-8 text-center text-sm text-muted">No events yet. Create your first one with the form.</li>}
+            {events?.length === 0 && <li className="p-8 text-center text-sm text-muted">{staff ? "Your organizer has no events yet." : "No events yet. Create your first one with the form."}</li>}
             {events?.map(({ event: ev, ...sales }) => (
               <li key={ev.id} className="flex flex-wrap items-center gap-4 p-4">
                 <div className="hidden h-16 w-24 shrink-0 overflow-hidden rounded-md border border-line min-[420px]:block"><EventCover event={ev} sizes="sm" /></div>
@@ -186,6 +186,7 @@ export default function AdminPage() {
           </ul>
         </section>
 
+        {!staff && (
         <section aria-labelledby="create-h" className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)] lg:self-start">
           <h2 id="create-h" className="font-display text-xl font-semibold">New event</h2>
           <form onSubmit={create} className="mt-5 space-y-4">
@@ -218,6 +219,7 @@ export default function AdminPage() {
             </fieldset>
           </form>
         </section>
+        )}
       </div>
 
       <Toast message={toast} onDone={clearToast} />

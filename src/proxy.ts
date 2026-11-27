@@ -10,7 +10,7 @@ const ADMIN_PAGES: [string, string[]][] = [
   ["/admin/checkin", ["ADMIN", "ORGANIZER", "STAFF"]],
   ["/admin/organizers", ["ADMIN"]],
   ["/admin/staff", ["ORGANIZER"]],
-  ["/admin", ["ADMIN", "ORGANIZER"]],
+  ["/admin", ["ADMIN", "ORGANIZER", "STAFF"]], // staff: read-only
 ];
 export async function proxy(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/organizer/signup")) return NextResponse.next(); // public: organizer sign-up

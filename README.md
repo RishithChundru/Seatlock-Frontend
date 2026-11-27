@@ -13,7 +13,7 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Seat tiers:** VIP and Premium rows are outlined on the map, with a price legend and per-tier checkout lines
 - **QR tickets:** each upcoming ticket shows a QR of its code; tickets are split into Upcoming and Past, and show "Checked in"
 - **Organizer sign-up, separate from customers:** `/organizer/signup` (linked in the footer and on customer sign-up) is a 4-step form: account, organisation (with an optional logo upload and preview), public contact details (Indian mobile with a +91 picker), review with a live preview of the "Hosted by" card. Until approved the organizer's dashboard is read-only; the status page shows pending, changes requested (with the note), approved or suspended
-- **Dashboards by role:** the super admin sees every event and an **Organizers** review queue (approve, request changes, suspend, reinstate); organizers see only their events with bookings, revenue and check-ins, plus **Gate staff**; staff see only the scanner
+- **Dashboards by role:** the super admin sees every event and an **Organizers** review queue (approve, request changes, suspend, reinstate); organizers see only their events with bookings, revenue and check-ins, plus **Gate staff** (invite by email, resend or cancel invites, remove); staff see their organizer's dashboard read-only and the scanner. Invited staff create their account at `/staff/invite`
 - **"Hosted by"** card on every organizer's event page
 - **Gate check-in** (organizers, their staff, super admin): type the code, or scan the QR with the camera where the browser supports `BarcodeDetector`. Shows green Admit, amber "Already used at…" or red refusal
 - **Event management:** create events with tiers, upload, replace or remove covers, cancel events (every ticket holder is refunded and emailed)
@@ -120,7 +120,8 @@ Type: Fraunces (display), Geist (UI), Geist Mono (seat labels, ticket codes).
 | `src/app/organizer/page.tsx` | Organizer application status and profile |
 | `src/components/OrganizerWizard.tsx` | Sign-up / edit wizard |
 | `src/app/admin/organizers/page.tsx` | Super admin: review and manage organizers |
-| `src/app/admin/staff/page.tsx` | Organizer: gate staff |
+| `src/app/admin/staff/page.tsx` | Organizer: gate staff and invites |
+| `src/app/staff/invite/page.tsx` | Create a staff account from an invite (public) |
 | `src/components/HostCard.tsx` | "Hosted by" organizer profile |
 | `src/app/account/page.tsx` | Profile and change password |
 | `src/components/TicketQr.tsx` | QR code for a ticket |
