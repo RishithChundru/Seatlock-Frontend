@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { api, Organizer, OrganizerStatus, useSession, when } from "@/lib/api";
 import HostCard from "@/components/HostCard";
@@ -8,7 +7,7 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { TextareaField } from "@/components/ui/Field";
 import { Alert, Skeleton, Toast } from "@/components/ui/Feedback";
-import { ArrowLeftIcon } from "@/components/ui/Icons";
+
 
 const TABS: { status: OrganizerStatus; label: string }[] = [
   { status: "PENDING", label: "To review" }, { status: "APPROVED", label: "Active" },
@@ -61,8 +60,7 @@ export default function OrganizersPage() {
   };
 
   return (
-    <div className="pt-10">
-      <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeftIcon /> Dashboard</Link>
+    <div>
       <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight">Organizers</h1>
       <p className="mt-2 text-muted">Approved organizers create and sell their own events. Suspending one stops them and their gate staff straight away; their events stay on sale.</p>
 

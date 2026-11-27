@@ -46,6 +46,9 @@ function EventView() {
   const loginUrl = `/login?next=/events/${id}`;
   const clearToast = useCallback(() => setToast(null), []);
   const signedIn = session !== null;
+  // Super admin, organizers and gate staff browse events but never book (the API refuses it too).
+  const manager = session !== null && session.user.role !== "USER";
+  const MANAGER_NOTE = "Organizer, staff and admin accounts can't book seats. Use a customer account to book.";
 
   const load = useCallback(async () => {
     try {
@@ -113,6 +116,7 @@ function EventView() {
 
   const toggle = async (s: Seat) => {
     if (!session) { router.push(loginUrl); return; }
+    if (manager) { setToast(MANAGER_NOTE); return; }
     if (s.status === "BOOKED" || (s.status === "HELD" && !s.mine)) return;
     idemKey.current = null;
 
@@ -140,6 +144,7 @@ function EventView() {
 
   const book = async () => {
     if (!session) { router.push(loginUrl); return; }
+    if (manager) { setToast(MANAGER_NOTE); return; }
     idemKey.current ??= crypto.randomUUID();
     setBusy(true);
     const finish = (b: Booking) => {
@@ -185,6 +190,7 @@ function EventView() {
 
   const joinWaitlist = async () => {
     if (!session) { router.push(loginUrl); return; }
+    if (manager) { setToast(MANAGER_NOTE); return; }
     setJoining(true);
     try {
       setWaitlist(await api<WaitlistStatus>(`/api/events/${id}/waitlist`, { method: "POST" }));
@@ -333,7 +339,16 @@ function EventView() {
 
         {/* Checkout */}
         <aside aria-labelledby="summary-h" className="lg:sticky lg:top-24 lg:self-start">
-          {soldOut && selected.length === 0 ? (
+          {manager ? (
+            <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
+              <Badge>{session.user.role === "ADMIN" ? "Super admin" : session.user.role === "STAFF" ? "Gate staff" : "Organizer"}</Badge>
+              <h2 id="summary-h" className="mt-3 font-display text-xl font-semibold">Viewing as {session.user.role === "ADMIN" ? "admin" : session.user.role === "STAFF" ? "staff" : "organizer"}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                This is the live seat map customers see. {MANAGER_NOTE}
+              </p>
+              <Button href="/admin/events" variant="secondary" className="mt-5 w-full">Open dashboard</Button>
+            </div>
+          ) : soldOut && selected.length === 0 ? (
             <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
               <Badge tone="warning">Sold out</Badge>
               <h2 id="summary-h" className="mt-3 font-display text-xl font-semibold">

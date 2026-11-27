@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { api, StaffMember, useSession, when } from "@/lib/api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Alert, Skeleton, Toast } from "@/components/ui/Feedback";
-import { ArrowLeftIcon } from "@/components/ui/Icons";
+
 
 /**
  * Organizer: invite gate staff. Invites go only to emails with no Seatlock account; the person creates their
@@ -55,8 +54,7 @@ export default function StaffPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl pt-10">
-      <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeftIcon /> Dashboard</Link>
+    <div className="max-w-2xl">
       <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight">Gate staff</h1>
       <p className="mt-2 text-muted">
         Staff scan tickets for your events and can see your dashboard, read-only. Invite an email that isn&apos;t registered on

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import jsQR from "jsqr";
 import { makeConfirmer, viewfinderCrop } from "@/lib/scan";
@@ -8,7 +7,7 @@ import { api, ApiError, CheckInResult, EventItem, ManagedEvent, useSession, when
 import Button from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
-import { ArrowLeftIcon, CheckIcon, XIcon } from "@/components/ui/Icons";
+import { CheckIcon, XIcon } from "@/components/ui/Icons";
 
 type Outcome = { kind: "ok" | "repeat" | "refused"; title: string; detail: string };
 
@@ -129,8 +128,7 @@ export default function CheckInPage() {
     : outcome?.kind === "repeat" ? "border-warning/40 bg-warning-subtle text-warning" : "border-danger/40 bg-danger-subtle text-danger";
 
   return (
-    <div className="mx-auto max-w-lg pt-10">
-      {role !== "STAFF" && <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeftIcon /> Dashboard</Link>}
+    <div className="max-w-lg">
       <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight">Check in</h1>
       <p className="mt-2 text-muted">Scan the QR on a ticket or type its code. Each ticket gets in once.</p>
 

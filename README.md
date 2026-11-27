@@ -13,6 +13,7 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Seat tiers:** VIP and Premium rows are outlined on the map, with a price legend and per-tier checkout lines
 - **QR tickets:** each upcoming ticket shows a QR of its code; tickets are split into Upcoming and Past, and show "Checked in"
 - **Organizer sign-up, separate from customers:** `/organizer/signup` (linked in the footer and on customer sign-up) is a 4-step form: account, organisation (with an optional logo upload and preview), public contact details (Indian mobile with a +91 picker), review with a live preview of the "Hosted by" card. Until approved the organizer's dashboard is read-only; the status page shows pending, changes requested (with the note), approved or suspended
+- **Dashboard with a collapsible sidebar** (`/admin`; a pill tab bar on phones), sections by role: Overview (upcoming events, seats sold, revenue, check-ins, what needs attention), Events (search; super admin can filter by organizer), Create event, Scan tickets, Organizer requests (super admin), Gate staff and Public profile (organizers), Browse live site. Admin, organizer and staff accounts never book: no Tickets link, and event pages show the live seat map read-only
 - **Dashboards by role:** the super admin sees every event and an **Organizers** review queue (approve, request changes, suspend, reinstate); organizers see only their events with bookings, revenue and check-ins, plus **Gate staff** (invite by email, resend or cancel invites, remove); staff see their organizer's dashboard read-only and the scanner. Invited staff create their account at `/staff/invite`
 - **"Hosted by"** card on every organizer's event page
 - **Gate check-in** (organizers, their staff, super admin): type the code, or scan the QR with the camera where the browser supports `BarcodeDetector`. Shows green Admit, amber "Already used at…" or red refusal
@@ -114,7 +115,11 @@ Type: Fraunces (display), Geist (UI), Geist Mono (seat labels, ticket codes).
 | `src/app/events/[id]/page.tsx` | Seat map and checkout |
 | `src/app/login/page.tsx` | Sign in / sign up |
 | `src/app/bookings/page.tsx` | Tickets |
-| `src/app/admin/page.tsx` | Create events (with tiers), manage covers, delete events (admins only) |
+| `src/app/admin/layout.tsx` | Dashboard shell: collapsible sidebar by role |
+| `src/app/admin/page.tsx` | Dashboard overview |
+| `src/app/admin/events/page.tsx` | Events: sales, covers, cancel, search, organizer filter |
+| `src/app/admin/events/new/page.tsx` | Create event (details, seat map, tiers) |
+| `src/lib/dashboard.ts` | What each role may see and do in the dashboard |
 | `src/app/admin/checkin/page.tsx` | Gate check-in by code or QR scan |
 | `src/app/organizer/signup/page.tsx` | Organizer sign-up (public) |
 | `src/app/organizer/page.tsx` | Organizer application status and profile |

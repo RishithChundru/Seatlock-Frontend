@@ -1,249 +1,138 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { api, CATEGORIES, EventItem, inr, ManagedEvent, useSession, when } from "@/lib/api";
-import EventCover from "@/components/EventCover";
-import Button, { buttonClass } from "@/components/ui/Button";
-import { Field, SelectField, TextareaField } from "@/components/ui/Field";
-import { Alert, Skeleton, Toast } from "@/components/ui/Feedback";
-import { TicketIcon, UploadIcon, XIcon } from "@/components/ui/Icons";
+import { useEffect, useState } from "react";
+import { api, inr, ManagedEvent, when } from "@/lib/api";
+import { useDashboardRole } from "@/lib/dashboard";
+import Button from "@/components/ui/Button";
+import { Alert, Skeleton } from "@/components/ui/Feedback";
+import { InboxIcon, PlusIcon, ScanIcon, UsersIcon } from "@/components/ui/Icons";
 
-const MAX_BYTES = 2 * 1024 * 1024;
-const ACCEPT = "image/jpeg,image/png,image/webp";
-const emptyForm = {
-  title: "", venue: "", category: "Concert", startsAt: "", price: "", rows: "8", seatsPerRow: "12", description: "",
-  vipRows: "0", vipPrice: "", premiumRows: "0", premiumPrice: "",
-};
-const rupeesToPaise = (v: string) => (v.trim() === "" ? null : Math.round(Number(v) * 100));
-
-export default function AdminPage() {
-  const session = useSession();
+/** Dashboard overview: headline numbers, anything that needs attention, and the next events. */
+export default function OverviewPage() {
+  const d = useDashboardRole();
   const [events, setEvents] = useState<ManagedEvent[] | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [requests, setRequests] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [uploading, setUploading] = useState<number | null>(null);
-  const [deleting, setDeleting] = useState<EventItem | null>(null);
-  const dialog = useRef<HTMLDialogElement>(null);
-  const clearToast = useCallback(() => setToast(null), []);
+  const [now, setNow] = useState(0); // stamped when data arrives; Date.now() in render breaks prerendering
 
-  const role = session?.user.role;
-  const superAdmin = role === "ADMIN";
-  const status = session?.user.organizerStatus;
-  const staff = role === "STAFF"; // gate staff: their organizer's events, read-only, plus the scanner
-  const pendingOrganizer = role === "ORGANIZER" && status !== "APPROVED"; // pending, needs changes or suspended
-  const readOnly = staff || pendingOrganizer;
-  const [requests, setRequests] = useState(0);
   useEffect(() => {
-    if (superAdmin) api<unknown[]>("/api/admin/organizers?status=PENDING").then((l) => setRequests(l.length)).catch(() => undefined);
-  }, [superAdmin]);
-  // The API returns only what this user may manage: every event for the super admin, their own for an organizer.
-  const load = useCallback(() => api<ManagedEvent[]>("/api/manage/events").then(setEvents).catch((e) => setError(e.message)), []);
-  useEffect(() => { if (role === "ADMIN" || role === "ORGANIZER" || role === "STAFF") load(); }, [role, load]);
-  useEffect(() => { if (deleting) dialog.current?.showModal(); }, [deleting]);
+    if (!d.manager) return;
+    api<ManagedEvent[]>("/api/manage/events").then((e) => { setNow(Date.now()); setEvents(e); }).catch((e) => setError((e as Error).message));
+  }, [d.manager]);
+  useEffect(() => {
+    if (d.superAdmin) api<unknown[]>("/api/admin/organizers?status=PENDING").then((l) => setRequests(l.length)).catch(() => setRequests(0));
+  }, [d.superAdmin]);
 
-  if (role !== "ADMIN" && role !== "ORGANIZER" && role !== "STAFF") {
-    return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">This page is for organizers. <Link className="underline" href="/organizer">Apply to host events</Link>.</Alert></div>;
+  if (!d.session) return null;
+  if (!d.manager) {
+    return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">The dashboard is for organizers. <Link className="underline" href="/organizer/signup">Create an organizer account</Link>.</Alert></div>;
   }
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm({ ...form, [k]: e.target.value });
-
-  const create = async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const created = await api<EventItem>("/api/events", {
-        method: "POST",
-        body: JSON.stringify({
-          title: form.title, venue: form.venue, category: form.category, description: form.description || null,
-          startsAt: new Date(form.startsAt).toISOString(), // datetime-local is in the admin's local time
-          priceCents: Math.round(Number(form.price) * 100), rows: Number(form.rows), seatsPerRow: Number(form.seatsPerRow),
-          vipRows: Number(form.vipRows), vipPriceCents: rupeesToPaise(form.vipPrice),
-          premiumRows: Number(form.premiumRows), premiumPriceCents: rupeesToPaise(form.premiumPrice),
-        }),
-      });
-      setForm(emptyForm);
-      setToast(`Created "${created.title}". Add a cover photo below.`);
-      load();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const upload = async (ev: EventItem, file: File | undefined) => {
-    if (!file) return;
-    if (!ACCEPT.split(",").includes(file.type)) { setToast("Use a JPEG, PNG or WebP image."); return; }
-    if (file.size > MAX_BYTES) { setToast("That image is over 2 MB. Try a smaller one."); return; }
-    setUploading(ev.id);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      await api<EventItem>(`/api/events/${ev.id}/image`, { method: "POST", body });
-      setToast(`Cover updated for "${ev.title}".`);
-      load();
-    } catch (err) {
-      setToast((err as Error).message);
-    } finally {
-      setUploading(null);
-    }
-  };
-
-  const removeCover = async (ev: EventItem) => {
-    try {
-      await api<EventItem>(`/api/events/${ev.id}/image`, { method: "DELETE" });
-      setToast(`Cover removed from "${ev.title}".`);
-      load();
-    } catch (err) {
-      setToast((err as Error).message);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleting) return;
-    try {
-      await api(`/api/events/${deleting.id}`, { method: "DELETE" });
-      setToast(`Cancelled "${deleting.title}". Ticket holders are being refunded and emailed.`);
-      dialog.current?.close();
-      load();
-    } catch (err) {
-      setToast((err as Error).message);
-      dialog.current?.close();
-    }
-  };
+  const upcoming = (events ?? []).filter((e) => Date.parse(e.event.startsAt) > now)
+    .sort((a, b) => Date.parse(a.event.startsAt) - Date.parse(b.event.startsAt));
+  const totals = (events ?? []).reduce((t, e) => ({
+    seats: t.seats + e.event.totalSeats - e.event.availableSeats, revenue: t.revenue + e.revenueCents, checkedIn: t.checkedIn + e.checkedIn,
+  }), { seats: 0, revenue: 0, checkedIn: 0 });
+  const title = d.superAdmin ? "Everything on Seatlock" : d.staff ? "Your gate" : "Your events at a glance";
 
   return (
-    <div className="pt-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">{superAdmin ? "Super admin" : staff ? "Gate staff · read-only" : "Organizer dashboard"}</p>
-          <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">{superAdmin ? "All events" : staff ? "Events you work at" : "Your events"}</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {superAdmin && (
-            <Button href="/admin/organizers" variant="secondary">
-              Organizer requests{requests > 0 && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent tabular">{requests}</span>}
-            </Button>
-          )}
-          {role === "ORGANIZER" && !readOnly && <Button href="/admin/staff" variant="secondary">Gate staff</Button>}
-          {role === "ORGANIZER" && <Button href="/organizer" variant="ghost">{readOnly ? "Application status" : "Public profile"}</Button>}
-          {!pendingOrganizer && <Button href="/admin/checkin" variant={staff ? "primary" : "secondary"}><TicketIcon /> Check in tickets</Button>}
-        </div>
-      </div>
+    <div>
+      <p className="eyebrow">Overview</p>
+      <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
 
-      {staff && <p className="mt-4 text-sm text-muted">You can see these events and scan their tickets, but not change anything.</p>}
-      {pendingOrganizer && (
+      {d.pendingOrganizer && (
         <div className="mt-6">
           <Alert tone="warning">
-            {status === "PENDING" && <><span className="font-medium">Your organizer account is waiting for approval.</span> You can look around, but creating events, adding staff and check-in unlock once we approve you. We&apos;ll email you.</>}
-            {status === "REJECTED" && <><span className="font-medium">Your application needs changes.</span> <Link className="underline" href="/organizer">See the note and resubmit</Link>.</>}
-            {status === "SUSPENDED" && <><span className="font-medium">Your organizer account is suspended.</span> Your dashboard is read-only. Contact Seatlock support.</>}
+            {d.status === "PENDING" && <><span className="font-medium">Your organizer account is waiting for approval.</span> You can look around; creating events, gate staff and scanning unlock once it&apos;s approved. We&apos;ll email you.</>}
+            {d.status === "REJECTED" && <><span className="font-medium">Your application needs changes.</span> <Link className="underline" href="/organizer">See the note and resubmit</Link>.</>}
+            {d.status === "SUSPENDED" && <><span className="font-medium">Your organizer account is suspended.</span> Everything is read-only. Contact Seatlock support.</>}
           </Alert>
         </div>
       )}
+      {d.staff && <p className="mt-3 text-muted">You can see your organizer&apos;s events and scan their tickets. Nothing here can be changed.</p>}
+      {error && <div className="mt-6"><Alert>{error}</Alert></div>}
 
-      <div className={`mt-10 grid gap-10 ${staff ? "" : "lg:grid-cols-[1fr_380px]"}`}>
-        <section aria-labelledby="list-h" className="min-w-0">
-          <h2 id="list-h" className="font-display text-xl font-semibold">{staff ? "Events and sales" : "Events, sales and covers"}</h2>
-          {!staff && <p className="mt-1 text-sm text-muted">JPEG, PNG or WebP, up to 2 MB. Landscape (3:2) photos look best.</p>}
-          <ul className="mt-5 divide-y divide-line overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)]">
-            {events === null && [0, 1, 2].map((i) => <li key={i} className="p-4"><Skeleton className="h-16" /></li>)}
-            {events?.length === 0 && <li className="p-8 text-center text-sm text-muted">{staff ? "Your organizer has no events yet." : "No events yet. Create your first one with the form."}</li>}
-            {events?.map(({ event: ev, ...sales }) => (
-              <li key={ev.id} className="flex flex-wrap items-center gap-4 p-4">
-                <div className="hidden h-16 w-24 shrink-0 overflow-hidden rounded-md border border-line min-[420px]:block"><EventCover event={ev} sizes="sm" /></div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{ev.title}</p>
-                  <p className="truncate text-sm text-muted tabular">
-                    {when(ev.startsAt, { day: "numeric", month: "short" })} · {ev.venue} · {inr(ev.priceCents)}
-                    {ev.tiers.length > 1 ? ` · ${ev.tiers.length} tiers` : ""} · {ev.totalSeats - ev.availableSeats}/{ev.totalSeats} sold
-                  </p>
-                  <p className="truncate text-sm text-muted tabular">
-                    {superAdmin && <span className="text-fg">{ev.host?.name ?? "Seatlock"} · </span>}
-                    {sales.bookings} booking{sales.bookings === 1 ? "" : "s"} · {inr(sales.revenueCents)} · {sales.checkedIn} checked in
-                  </p>
-                </div>
-                {!readOnly && <div className="flex items-center gap-1">
-                  <label className={buttonClass("secondary", "sm", `cursor-pointer ${uploading === ev.id ? "pointer-events-none opacity-50" : ""}`)}>
-                    <UploadIcon /> {uploading === ev.id ? "Uploading…" : ev.imageUrl ? "Replace" : "Add cover"}
-                    <input type="file" accept={ACCEPT} className="sr-only" aria-label={`Upload cover for ${ev.title}`}
-                      onChange={(e) => { upload(ev, e.target.files?.[0]); e.target.value = ""; }} />
-                  </label>
-                  {ev.imageUrl && (
-                    <Button variant="ghost" size="sm" onClick={() => removeCover(ev)} aria-label={`Remove cover from ${ev.title}`}>
-                      <XIcon /> Cover
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="sm" className="text-danger hover:text-danger" onClick={() => setDeleting(ev)}>Cancel event</Button>
-                </div>}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {!staff && (
-        <section aria-labelledby="create-h" className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)] lg:self-start">
-          <h2 id="create-h" className="font-display text-xl font-semibold">New event</h2>
-          <form onSubmit={create} className="mt-5 space-y-4">
-            <fieldset disabled={readOnly} className="space-y-4 disabled:opacity-60">
-            {error && <Alert>{error}</Alert>}
-            <Field label="Title" required maxLength={120} value={form.title} onChange={set("title")} />
-            <Field label="Venue" required maxLength={120} value={form.venue} onChange={set("venue")} hint="Place, City (the city powers search)" />
-            <div className="grid grid-cols-2 gap-3">
-              <SelectField label="Category" value={form.category} onChange={set("category")}>
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-              </SelectField>
-              <Field label="Standard price (₹)" type="number" min={0} step={1} required value={form.price} onChange={set("price")} />
-            </div>
-            <Field label="Starts at" type="datetime-local" required value={form.startsAt} onChange={set("startsAt")} />
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Rows" type="number" min={1} max={26} required value={form.rows} onChange={set("rows")} />
-              <Field label="Seats per row" type="number" min={1} max={40} required value={form.seatsPerRow} onChange={set("seatsPerRow")} />
-            </div>
-            <fieldset className="rounded-md border border-line p-3">
-              <legend className="px-1 text-sm font-medium">Seat tiers <span className="font-normal text-subtle">(front rows, optional)</span></legend>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="VIP rows" type="number" min={0} max={26} value={form.vipRows} onChange={set("vipRows")} />
-                <Field label="VIP price (₹)" type="number" min={0} step={1} value={form.vipPrice} onChange={set("vipPrice")} placeholder="2× standard" />
-                <Field label="Premium rows" type="number" min={0} max={26} value={form.premiumRows} onChange={set("premiumRows")} />
-                <Field label="Premium price (₹)" type="number" min={0} step={1} value={form.premiumPrice} onChange={set("premiumPrice")} placeholder="1.5× standard" />
-              </div>
-            </fieldset>
-            <TextareaField label="Description" maxLength={1000} value={form.description} onChange={set("description")} hint="Shown on the event page." />
-            <Button type="submit" className="w-full" disabled={busy || readOnly}>{busy ? "Creating…" : readOnly ? "Available once approved" : "Create event"}</Button>
-            </fieldset>
-          </form>
-        </section>
-        )}
+      {/* Headline numbers */}
+      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Upcoming events" value={events ? String(upcoming.length) : null} />
+        <Stat label="Seats sold" value={events ? totals.seats.toLocaleString("en-IN") : null} />
+        <Stat label="Revenue" value={events ? inr(totals.revenue) : null} />
+        <Stat label="Checked in" value={events ? totals.checkedIn.toLocaleString("en-IN") : null} />
       </div>
 
-      <Toast message={toast} onDone={clearToast} />
-
-      <dialog
-        ref={dialog}
-        onClose={() => setDeleting(null)}
-        aria-labelledby="delete-title"
-        className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-[var(--card-radius)] border border-line bg-surface p-0 text-fg shadow-lg"
-      >
-        {deleting && (
-          <div className="p-7">
-            <h2 id="delete-title" className="font-display text-2xl font-semibold">Cancel and delete this event?</h2>
-            <p className="mt-3 text-muted">
-              &ldquo;{deleting.title}&rdquo; and its seat map, cover and waitlist are removed for good. Everyone with tickets is cancelled,
-              refunded in full and emailed.
-            </p>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <Button variant="secondary" onClick={() => dialog.current?.close()}>Keep event</Button>
-              <Button onClick={confirmDelete}>Cancel &amp; delete</Button>
+      {/* Needs attention + quick actions */}
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        {d.superAdmin && (
+          <Card>
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-subtle text-accent-fg"><InboxIcon width={18} height={18} /></span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">Organizer requests</p>
+                <p className="text-sm text-muted">{requests === null ? "Checking…" : requests === 0 ? "Nothing waiting for review." : `${requests} waiting for your review.`}</p>
+              </div>
+              <Button href="/admin/organizers" size="sm" variant={requests ? "primary" : "secondary"}>Review</Button>
             </div>
-          </div>
+          </Card>
         )}
-      </dialog>
+        <Card>
+          <p className="font-medium">Quick actions</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {d.canCreate && <Button href="/admin/events/new" size="sm"><PlusIcon /> Create event</Button>}
+            {d.canScan && <Button href="/admin/checkin" size="sm" variant="secondary"><ScanIcon /> Scan tickets</Button>}
+            {d.organizer && !d.pendingOrganizer && <Button href="/admin/staff" size="sm" variant="secondary"><UsersIcon /> Gate staff</Button>}
+            {d.pendingOrganizer && <Button href="/organizer" size="sm" variant="secondary">Application status</Button>}
+          </div>
+        </Card>
+      </div>
+
+      {/* Next events */}
+      <section aria-labelledby="next-h" className="mt-10">
+        <div className="flex items-end justify-between gap-3">
+          <h2 id="next-h" className="font-display text-xl font-bold">Coming up</h2>
+          <Link href="/admin/events" className="text-sm font-medium text-accent-fg hover:underline">All events</Link>
+        </div>
+        <ul className="mt-4 divide-y divide-line overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] shadow-[var(--card-shadow)]">
+          {events === null && [0, 1].map((i) => <li key={i} className="p-4"><Skeleton className="h-12" /></li>)}
+          {events !== null && upcoming.length === 0 && (
+            <li className="p-8 text-center text-sm text-muted">
+              No upcoming events.{d.canCreate && <> <Link href="/admin/events/new" className="font-medium text-accent-fg hover:underline">Create one</Link>.</>}
+            </li>
+          )}
+          {upcoming.slice(0, 5).map(({ event: ev, bookings }) => {
+            const sold = ev.totalSeats - ev.availableSeats;
+            const pct = ev.totalSeats ? Math.round((sold / ev.totalSeats) * 100) : 0;
+            return (
+              <li key={ev.id} className="flex flex-wrap items-center gap-4 p-4">
+                <div className="min-w-0 flex-1">
+                  <Link href={`/events/${ev.id}`} className="truncate font-medium hover:text-accent-fg">{ev.title}</Link>
+                  <p className="truncate text-sm text-muted tabular">
+                    {when(ev.startsAt, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} · {ev.venue}
+                    {d.superAdmin && <> · {ev.host?.name ?? "Seatlock"}</>}
+                  </p>
+                </div>
+                <div className="w-40 shrink-0">
+                  <div className="flex justify-between text-xs text-muted tabular"><span>{sold}/{ev.totalSeats} sold</span><span>{bookings} bookings</span></div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-sunken"><div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} /></div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 shadow-[var(--card-shadow)]">{children}</div>;
+}
+
+function Stat({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-[var(--card-shadow)]">
+      <p className="text-sm text-muted">{label}</p>
+      {value === null ? <Skeleton className="mt-2 h-7 w-20" /> : <p className="mt-1 font-display text-2xl font-bold tabular">{value}</p>}
     </div>
   );
 }

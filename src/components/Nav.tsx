@@ -34,7 +34,7 @@ export default function Nav() {
   const links = (
     <>
       {link("/", "Events")}
-      {session && link("/bookings", "Tickets")}
+      {session?.user.role === "USER" && link("/bookings", "Tickets")}
       {session && <span className="md:hidden">{link("/account", "Account")}</span>}
       {(session?.user.role === "ADMIN" || session?.user.role === "ORGANIZER") && link("/admin", "Dashboard")}
       {session?.user.role === "STAFF" && link("/admin", "Dashboard")}

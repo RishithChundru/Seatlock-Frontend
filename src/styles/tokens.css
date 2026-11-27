@@ -197,9 +197,9 @@
 /* ---------- 3. Component ---------- */
 :root {
   --button-radius: var(--radius-md);
-  /* Buttons: a deeper coral so white labels stay readable; bright coral stays for the logo, seats and highlights */
-  --button-primary-bg: var(--coral-650);
-  --button-primary-bg-hover: var(--coral-750);
+  /* Buttons: brand coral with white, semibold labels (chosen look; white on #FF6F61 is 2.7:1, below the 4.5:1 guideline) */
+  --button-primary-bg: var(--coral-500);
+  --button-primary-bg-hover: var(--coral-600);
   --button-primary-fg: var(--white);
   --button-secondary-bg: var(--sl-surface);
   --button-secondary-border: var(--sl-border-strong);

@@ -6,7 +6,7 @@ type Size = "sm" | "md" | "lg";
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-[var(--button-primary-bg)] text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-bg-hover)] disabled:hover:bg-[var(--button-primary-bg)]",
+    "bg-[var(--button-primary-bg)] font-semibold text-[var(--button-primary-fg)] hover:bg-[var(--button-primary-bg-hover)] disabled:hover:bg-[var(--button-primary-bg)]",
   secondary:
     "bg-[var(--button-secondary-bg)] text-fg border border-[var(--button-secondary-border)] hover:border-fg shadow-sm",
   ghost: "text-muted hover:text-fg hover:bg-sunken",
