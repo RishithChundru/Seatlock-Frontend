@@ -15,7 +15,8 @@ export default function Logo({ size = 28, className = "" }: { size?: number; cla
   return (
     <span className={`inline-flex items-center gap-2 font-display font-bold tracking-tight ${className}`}>
       <LogoMark size={size} />
-      <span>Seat<span className="text-accent-fg">lock</span></span>
+      {/* Brand coral, same as the mark. Logotypes are exempt from text-contrast rules, unlike coral body text. */}
+      <span>Seat<span className="text-accent">lock</span></span>
     </span>
   );
 }
