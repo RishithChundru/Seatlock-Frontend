@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, API_URL, ApiError, Booking, EventItem, Hold, inr, Seat, TIER_LABEL, useSession, WaitlistStatus, when } from "@/lib/api";
+import { payWithRazorpay } from "@/lib/razorpay";
+import { api, API_URL, ApiError, Booking, CheckoutResponse, EventItem, Hold, inr, Seat, TIER_LABEL, useSession, WaitlistStatus, when } from "@/lib/api";
 import EventCover from "@/components/EventCover";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -137,16 +138,31 @@ function EventView() {
     if (!session) { router.push(loginUrl); return; }
     idemKey.current ??= crypto.randomUUID();
     setBusy(true);
-    try {
-      const b = await api<Booking>("/api/bookings", {
-        method: "POST",
-        headers: { "Idempotency-Key": idemKey.current },
-        body: JSON.stringify({ eventId: Number(id), seatIds: selected.map((s) => s.id) }),
-      });
+    const finish = (b: Booking) => {
       setDone(b);
       mine.current = new Set();
       idemKey.current = null;
       load();
+    };
+    try {
+      const res = await api<CheckoutResponse>("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Idempotency-Key": idemKey.current },
+        body: JSON.stringify({ eventId: Number(id), seatIds: selected.map((s) => s.id) }),
+      });
+      if (res.booking) { finish(res.booking); return; } // payments off, or a free order
+      load(); // shows the longer hold the server just gave us for paying
+      const paid = await payWithRazorpay({
+        keyId: res.keyId!, orderId: res.orderId!, amountCents: res.amountCents!,
+        description: `${selected.length} seat${selected.length === 1 ? "" : "s"} · ${event?.title ?? ""}`,
+        name: session.user.name, email: session.user.email,
+      });
+      // The Idempotency-Key is kept, so paying again reopens this same order instead of creating another.
+      if (!paid) { setToast("Payment cancelled. Your seats stay held for a few more minutes."); return; }
+      finish(await api<Booking>("/api/payments/verify", {
+        method: "POST",
+        body: JSON.stringify({ orderId: paid.razorpay_order_id, paymentId: paid.razorpay_payment_id, signature: paid.razorpay_signature }),
+      }));
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) { idemKey.current = null; setToast(e.message); load(); }
       else if (e instanceof ApiError && e.status === 401) router.push(loginUrl);
@@ -370,9 +386,9 @@ function EventView() {
             </dl>
 
             <Button size="lg" className="mt-5 w-full" onClick={book} disabled={(session !== null && selected.length === 0) || busy}>
-              {busy ? "Confirming…" : !session ? "Sign in to book" : selected.length === 0 ? "Book seats" : `Book ${selected.length} seat${selected.length === 1 ? "" : "s"}`}
+              {busy ? "Processing…" : !session ? "Sign in to book" : selected.length === 0 ? "Book seats" : `Book ${selected.length} seat${selected.length === 1 ? "" : "s"}`}
             </Button>
-            <p className="mt-3 text-center text-xs text-subtle">Payment is simulated in this demo.</p>
+            <p className="mt-3 text-center text-xs text-subtle">Secure payment by Razorpay (test mode: no real money is charged).</p>
           </div>
           )}
         </aside>
