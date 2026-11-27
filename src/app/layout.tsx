@@ -31,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="border-t border-line">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-xs text-subtle sm:px-6">
             <span className="font-display text-sm text-muted">Seat<span className="text-accent">lock</span></span>
+            <a href="/organizer/signup" className="hover:text-fg">Host events on Seatlock</a>
           </div>
         </footer>
       </body>

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { api, CATEGORIES, EventItem, inr, useSession, when } from "@/lib/api";
+import { api, CATEGORIES, EventItem, inr, ManagedEvent, useSession, when } from "@/lib/api";
 import EventCover from "@/components/EventCover";
 import Button, { buttonClass } from "@/components/ui/Button";
 import { Field, SelectField, TextareaField } from "@/components/ui/Field";
@@ -18,7 +19,7 @@ const rupeesToPaise = (v: string) => (v.trim() === "" ? null : Math.round(Number
 
 export default function AdminPage() {
   const session = useSession();
-  const [events, setEvents] = useState<EventItem[] | null>(null);
+  const [events, setEvents] = useState<ManagedEvent[] | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -28,12 +29,23 @@ export default function AdminPage() {
   const dialog = useRef<HTMLDialogElement>(null);
   const clearToast = useCallback(() => setToast(null), []);
 
-  const load = useCallback(() => api<EventItem[]>("/api/events").then(setEvents).catch((e) => setError(e.message)), []);
-  useEffect(() => { if (session?.user.role === "ADMIN") load(); }, [session, load]);
+  const role = session?.user.role;
+  const superAdmin = role === "ADMIN";
+  const status = session?.user.organizerStatus;
+  const staff = role === "STAFF"; // gate staff: their organizer's events, read-only, plus the scanner
+  const pendingOrganizer = role === "ORGANIZER" && status !== "APPROVED"; // pending, needs changes or suspended
+  const readOnly = staff || pendingOrganizer;
+  const [requests, setRequests] = useState(0);
+  useEffect(() => {
+    if (superAdmin) api<unknown[]>("/api/admin/organizers?status=PENDING").then((l) => setRequests(l.length)).catch(() => undefined);
+  }, [superAdmin]);
+  // The API returns only what this user may manage: every event for the super admin, their own for an organizer.
+  const load = useCallback(() => api<ManagedEvent[]>("/api/manage/events").then(setEvents).catch((e) => setError(e.message)), []);
+  useEffect(() => { if (role === "ADMIN" || role === "ORGANIZER" || role === "STAFF") load(); }, [role, load]);
   useEffect(() => { if (deleting) dialog.current?.showModal(); }, [deleting]);
 
-  if (session?.user.role !== "ADMIN") {
-    return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">This page is for admins. Sign in with the admin account to manage events.</Alert></div>;
+  if (role !== "ADMIN" && role !== "ORGANIZER" && role !== "STAFF") {
+    return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">This page is for organizers. <Link className="underline" href="/organizer">Apply to host events</Link>.</Alert></div>;
   }
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -96,7 +108,7 @@ export default function AdminPage() {
     if (!deleting) return;
     try {
       await api(`/api/events/${deleting.id}`, { method: "DELETE" });
-      setToast(`Deleted "${deleting.title}".`);
+      setToast(`Cancelled "${deleting.title}". Ticket holders are being refunded and emailed.`);
       dialog.current?.close();
       load();
     } catch (err) {
@@ -109,19 +121,40 @@ export default function AdminPage() {
     <div className="pt-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Admin</p>
-          <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">Manage events</h1>
+          <p className="eyebrow">{superAdmin ? "Super admin" : staff ? "Gate staff · read-only" : "Organizer dashboard"}</p>
+          <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">{superAdmin ? "All events" : staff ? "Events you work at" : "Your events"}</h1>
         </div>
-        <Button href="/admin/checkin" variant="secondary"><TicketIcon /> Check in tickets</Button>
+        <div className="flex flex-wrap gap-2">
+          {superAdmin && (
+            <Button href="/admin/organizers" variant="secondary">
+              Organizer requests{requests > 0 && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs text-white tabular">{requests}</span>}
+            </Button>
+          )}
+          {role === "ORGANIZER" && !readOnly && <Button href="/admin/staff" variant="secondary">Gate staff</Button>}
+          {role === "ORGANIZER" && <Button href="/organizer" variant="ghost">{readOnly ? "Application status" : "Public profile"}</Button>}
+          {!pendingOrganizer && <Button href="/admin/checkin" variant={staff ? "primary" : "secondary"}><TicketIcon /> Check in tickets</Button>}
+        </div>
       </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_380px]">
+      {staff && <p className="mt-4 text-sm text-muted">You can see these events and scan their tickets, but not change anything.</p>}
+      {pendingOrganizer && (
+        <div className="mt-6">
+          <Alert tone="warning">
+            {status === "PENDING" && <><span className="font-medium">Your organizer account is waiting for approval.</span> You can look around, but creating events, adding staff and check-in unlock once we approve you. We&apos;ll email you.</>}
+            {status === "REJECTED" && <><span className="font-medium">Your application needs changes.</span> <Link className="underline" href="/organizer">See the note and resubmit</Link>.</>}
+            {status === "SUSPENDED" && <><span className="font-medium">Your organizer account is suspended.</span> Your dashboard is read-only. Contact Seatlock support.</>}
+          </Alert>
+        </div>
+      )}
+
+      <div className={`mt-10 grid gap-10 ${staff ? "" : "lg:grid-cols-[1fr_380px]"}`}>
         <section aria-labelledby="list-h" className="min-w-0">
-          <h2 id="list-h" className="font-display text-xl font-semibold">Events and covers</h2>
-          <p className="mt-1 text-sm text-muted">JPEG, PNG or WebP, up to 2 MB. Landscape (3:2) photos look best.</p>
+          <h2 id="list-h" className="font-display text-xl font-semibold">{staff ? "Events and sales" : "Events, sales and covers"}</h2>
+          {!staff && <p className="mt-1 text-sm text-muted">JPEG, PNG or WebP, up to 2 MB. Landscape (3:2) photos look best.</p>}
           <ul className="mt-5 divide-y divide-line overflow-hidden rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)]">
             {events === null && [0, 1, 2].map((i) => <li key={i} className="p-4"><Skeleton className="h-16" /></li>)}
-            {events?.map((ev) => (
+            {events?.length === 0 && <li className="p-8 text-center text-sm text-muted">{staff ? "Your organizer has no events yet." : "No events yet. Create your first one with the form."}</li>}
+            {events?.map(({ event: ev, ...sales }) => (
               <li key={ev.id} className="flex flex-wrap items-center gap-4 p-4">
                 <div className="hidden h-16 w-24 shrink-0 overflow-hidden rounded-md border border-line min-[420px]:block"><EventCover event={ev} sizes="sm" /></div>
                 <div className="min-w-0 flex-1">
@@ -130,8 +163,12 @@ export default function AdminPage() {
                     {when(ev.startsAt, { day: "numeric", month: "short" })} · {ev.venue} · {inr(ev.priceCents)}
                     {ev.tiers.length > 1 ? ` · ${ev.tiers.length} tiers` : ""} · {ev.totalSeats - ev.availableSeats}/{ev.totalSeats} sold
                   </p>
+                  <p className="truncate text-sm text-muted tabular">
+                    {superAdmin && <span className="text-fg">{ev.host?.name ?? "Seatlock"} · </span>}
+                    {sales.bookings} booking{sales.bookings === 1 ? "" : "s"} · {inr(sales.revenueCents)} · {sales.checkedIn} checked in
+                  </p>
                 </div>
-                <div className="flex items-center gap-1">
+                {!readOnly && <div className="flex items-center gap-1">
                   <label className={buttonClass("secondary", "sm", `cursor-pointer ${uploading === ev.id ? "pointer-events-none opacity-50" : ""}`)}>
                     <UploadIcon /> {uploading === ev.id ? "Uploading…" : ev.imageUrl ? "Replace" : "Add cover"}
                     <input type="file" accept={ACCEPT} className="sr-only" aria-label={`Upload cover for ${ev.title}`}
@@ -142,16 +179,18 @@ export default function AdminPage() {
                       <XIcon /> Cover
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" className="text-danger hover:text-danger" onClick={() => setDeleting(ev)}>Delete</Button>
-                </div>
+                  <Button variant="ghost" size="sm" className="text-danger hover:text-danger" onClick={() => setDeleting(ev)}>Cancel event</Button>
+                </div>}
               </li>
             ))}
           </ul>
         </section>
 
+        {!staff && (
         <section aria-labelledby="create-h" className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)] lg:self-start">
           <h2 id="create-h" className="font-display text-xl font-semibold">New event</h2>
           <form onSubmit={create} className="mt-5 space-y-4">
+            <fieldset disabled={readOnly} className="space-y-4 disabled:opacity-60">
             {error && <Alert>{error}</Alert>}
             <Field label="Title" required maxLength={120} value={form.title} onChange={set("title")} />
             <Field label="Venue" required maxLength={120} value={form.venue} onChange={set("venue")} hint="Place, City (the city powers search)" />
@@ -176,9 +215,11 @@ export default function AdminPage() {
               </div>
             </fieldset>
             <TextareaField label="Description" maxLength={1000} value={form.description} onChange={set("description")} hint="Shown on the event page." />
-            <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating…" : "Create event"}</Button>
+            <Button type="submit" className="w-full" disabled={busy || readOnly}>{busy ? "Creating…" : readOnly ? "Available once approved" : "Create event"}</Button>
+            </fieldset>
           </form>
         </section>
+        )}
       </div>
 
       <Toast message={toast} onDone={clearToast} />
@@ -191,14 +232,14 @@ export default function AdminPage() {
       >
         {deleting && (
           <div className="p-7">
-            <h2 id="delete-title" className="font-display text-2xl font-semibold">Delete this event?</h2>
+            <h2 id="delete-title" className="font-display text-2xl font-semibold">Cancel and delete this event?</h2>
             <p className="mt-3 text-muted">
-              &ldquo;{deleting.title}&rdquo; and its seat map, cover and waitlist are removed for good. Events with confirmed bookings
-              can&apos;t be deleted until those are cancelled.
+              &ldquo;{deleting.title}&rdquo; and its seat map, cover and waitlist are removed for good. Everyone with tickets is cancelled,
+              refunded in full and emailed.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <Button variant="secondary" onClick={() => dialog.current?.close()}>Keep event</Button>
-              <Button onClick={confirmDelete}>Delete event</Button>
+              <Button onClick={confirmDelete}>Cancel &amp; delete</Button>
             </div>
           </div>
         )}
