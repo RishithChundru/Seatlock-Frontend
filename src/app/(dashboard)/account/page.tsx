@@ -48,7 +48,7 @@ export default function AccountPage() {
 
   const { user } = session;
   return (
-    <div className="mx-auto max-w-2xl pt-12">
+    <div className="max-w-2xl">
       <p className="eyebrow">Account</p>
       <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">{user.name}</h1>
 

@@ -51,7 +51,7 @@ export default function OrganizerPage() {
   const badge = { PENDING: <Badge tone="warning">Pending approval</Badge>, APPROVED: <Badge tone="success">Approved</Badge>,
     REJECTED: <Badge tone="danger">Needs changes</Badge>, SUSPENDED: <Badge tone="danger">Suspended</Badge> }[org.status];
   return (
-    <div className="mx-auto max-w-2xl pt-12">
+    <div className="max-w-2xl">
       <p className="eyebrow">Organizer account</p>
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <h1 className="font-display text-4xl font-semibold tracking-tight">{org.name}</h1>

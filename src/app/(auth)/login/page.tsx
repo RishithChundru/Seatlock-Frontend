@@ -43,7 +43,8 @@ function LoginForm() {
       // or they'd still be in the form when someone opens sign-in after signing out.
       setForm(EMPTY);
       setMode("login");
-      router.push(next);
+      // Organizers, staff and the super admin start on their dashboard unless a page asked for them to come back.
+      router.push(next === "/" && res.user.role !== "USER" ? "/admin" : next);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -52,21 +53,10 @@ function LoginForm() {
   };
 
   return (
-    <div className="mx-auto grid max-w-4xl gap-10 pt-12 sm:pt-20 md:grid-cols-[1fr_380px] md:items-center">
-      <div className="hidden md:block">
-        <p className="eyebrow">Seatlock</p>
-        <p className="mt-4 font-display text-4xl font-semibold leading-tight tracking-tight">
-          The seat you tap is the seat you get.
-        </p>
-        <ul className="mt-6 space-y-3 text-muted">
-          <li>Seats are held for 5 minutes while you check out.</li>
-          <li>Two people can never book the same seat.</li>
-          <li>Tickets arrive by email within seconds.</li>
-        </ul>
-      </div>
-
-      <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-7 shadow-md">
-        <h1 className="font-display text-2xl font-semibold">{mode === "login" ? "Sign in" : "Create an account"}</h1>
+    <div className="w-full max-w-sm">
+      <div>
+        <p className="eyebrow">{mode === "login" ? "Welcome back" : "Join Seatlock"}</p>
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">{mode === "login" ? "Sign in" : "Create an account"}</h1>
         <p className="mt-1 text-sm text-muted">
           {mode === "login" ? "New here? " : "Already have an account? "}
           <button type="button" onClick={switchMode} className="font-medium text-accent-fg underline-offset-4 hover:underline">
@@ -95,6 +85,9 @@ function LoginForm() {
           </Button>
         </form>
       </div>
+      <p className="mt-8 text-center text-sm text-muted">
+        Hosting events? <Link href="/organizer/signup" className="font-medium text-accent-fg underline-offset-4 hover:underline">Create an organizer account</Link>
+      </p>
     </div>
   );
 }

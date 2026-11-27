@@ -22,7 +22,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(login);
   }
   // /admin pages by role; /bookings (tickets) is for customers only.
-  if (req.nextUrl.pathname.startsWith("/admin") || req.nextUrl.pathname.startsWith("/bookings")) {
+  if (["/admin", "/bookings", "/me"].some((p) => req.nextUrl.pathname.startsWith(p))) {
     try {
       const res = await fetch(`${BACKEND}/api/auth/session`, {
         headers: { cookie: `sl_refresh=${refresh}` },
@@ -33,12 +33,12 @@ export async function proxy(req: NextRequest) {
       if (res.ok) {
         const { role, organizerStatus } = (await res.json()) as { role: string; organizerStatus: string | null };
         const path = req.nextUrl.pathname;
-        if (path.startsWith("/bookings")) {
+        if (path.startsWith("/bookings") || path.startsWith("/me")) {
           if (role !== "USER") return NextResponse.redirect(new URL("/admin", req.url)); // managers never book
           return NextResponse.next();
         }
         const allowed = ADMIN_PAGES.find(([prefix]) => path.startsWith(prefix))![1];
-        if (!allowed.includes(role)) return NextResponse.redirect(new URL(role === "STAFF" ? "/admin/checkin" : "/", req.url));
+        if (!allowed.includes(role)) return NextResponse.redirect(new URL(role === "USER" ? "/me" : "/admin", req.url));
         // Pending / suspended organizers get a read-only dashboard, not the scanner or staff pages.
         if (role === "ORGANIZER" && organizerStatus !== "APPROVED" && path !== "/admin" && path !== "/admin/events") {
           return NextResponse.redirect(new URL("/admin", req.url));
@@ -51,4 +51,4 @@ export async function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/bookings/:path*", "/account/:path*", "/admin/:path*", "/organizer/:path*"] };
+export const config = { matcher: ["/me/:path*", "/bookings/:path*", "/account/:path*", "/admin/:path*", "/organizer/:path*"] };

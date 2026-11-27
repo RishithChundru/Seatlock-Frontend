@@ -11,12 +11,15 @@ export function LogoMark({ size = 28, className = "" }: { size?: number; classNa
   );
 }
 
-export default function Logo({ size = 28, className = "" }: { size?: number; className?: string }) {
+/** tone "onDark": white "Seat" + marigold "lock", for the navy sidebar and the sign-in panel. */
+export default function Logo({ size = 28, className = "", tone = "default", showText = true }: {
+  size?: number; className?: string; tone?: "default" | "onDark"; showText?: boolean;
+}) {
   return (
-    <span className={`inline-flex items-center gap-2 font-display font-bold tracking-tight ${className}`}>
-      <LogoMark size={size} />
-      {/* "lock" in the brand accent text colour: navy in light mode, marigold in dark */}
-      <span>Seat<span className="text-accent-fg">lock</span></span>
+    <span className={`inline-flex items-center gap-2 font-display font-bold tracking-tight ${tone === "onDark" ? "text-white" : ""} ${className}`}>
+      <LogoMark size={size} className={tone === "onDark" ? "ring-1 ring-white/15 rounded-[22%]" : ""} />
+      {/* "lock" in the brand accent: navy on light pages, marigold on dark surfaces */}
+      {showText && <span>Seat<span className={tone === "onDark" ? "text-[var(--marigold-400)]" : "text-accent-fg"}>lock</span></span>}
     </span>
   );
 }

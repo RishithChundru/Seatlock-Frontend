@@ -114,7 +114,7 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="pt-12">
+    <div>
       <p className="eyebrow">Your wallet</p>
       <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">Tickets</h1>
 

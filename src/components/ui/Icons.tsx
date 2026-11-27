@@ -72,3 +72,18 @@ export const GlobeIcon = (p: SVGProps<SVGSVGElement>) => (
 export const SidebarIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>
 );
+export const UserIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+);
+export const LogoutIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11" /></svg>
+);
+export const MenuIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+);
+export const RupeeIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M7 4h10M7 9h10M14 4c3 0 3 10-4 10H7l8 6" /></svg>
+);
+export const TrendIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M3 17l6-6 4 4 8-8M15 7h6v6" /></svg>
+);

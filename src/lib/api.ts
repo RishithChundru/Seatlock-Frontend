@@ -152,6 +152,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (res.status === 204 ? undefined : res.json()) as Promise<T>;
 }
 
+/** Dashboard charts: confirmed bookings and revenue per week (oldest first), and the latest bookings. */
+export type Insights = {
+  weeks: { weekStart: string; bookings: number; revenueCents: number }[];
+  recent: { id: number; eventId: number; eventTitle: string; seats: string[]; customer: string; totalCents: number;
+    status: "CONFIRMED" | "CANCELLED"; createdAt: string; checkedIn: boolean }[];
+};
+
 /** Dashboard row: the event plus its sales (confirmed bookings). */
 export type ManagedEvent = { event: EventItem; bookings: number; revenueCents: number; checkedIn: number };
 

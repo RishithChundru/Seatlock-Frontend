@@ -220,7 +220,18 @@
   --seat-booked-fg: var(--sl-text-subtle);
 
   --focus-ring: 0 0 0 2px var(--sl-bg), 0 0 0 4px var(--sl-focus);
+
+  /* Dashboard sidebar: navy in both themes (muted text 6.9:1, active marigold 9.6:1) */
+  --sidebar-bg: #0f1b3d;
+  --sidebar-fg: #e5e9f2;
+  --sidebar-muted: #a3aec4;
+  --sidebar-hover: rgb(255 255 255 / 0.06);
+  --sidebar-active-bg: rgb(251 191 36 / 0.16);
+  --sidebar-active-fg: var(--marigold-400);
+  --sidebar-line: rgb(255 255 255 / 0.09);
 }
+:root[data-theme="dark"] { --sidebar-bg: #0e1529; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sidebar-bg: #0e1529; } }
 @media (min-width: 640px) {
   :root { --seat-size: 32px; }
 }
