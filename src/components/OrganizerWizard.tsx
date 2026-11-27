@@ -1,15 +1,18 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { api, Organizer, setSession, User } from "@/lib/api";
 import HostCard from "@/components/HostCard";
-import Button from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
+import { UploadIcon } from "@/components/ui/Icons";
 import { controlClass, Field, PasswordField, TextareaField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
 
 const EMPTY = { name: "", city: "", about: "", contactEmail: "", phone: "", website: "" };
 const ACCOUNT = { accountName: "", email: "", password: "" };
 type Form = typeof EMPTY & typeof ACCOUNT;
+const LOGO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_LOGO_BYTES = 1024 * 1024;
 
 /** "+91 98765 43210" -> "9876543210" (the national part the input edits). */
 const national = (p: string) => p.replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
@@ -31,7 +34,31 @@ export default function OrganizerWizard({ signup = false, initial = null, onSave
     ...(initial ? { name: initial.name, city: initial.city, about: initial.about, contactEmail: initial.contactEmail,
       phone: national(initial.contactPhone), website: initial.website ?? "" } : EMPTY),
   });
+  // Logo (optional): a picked file (uploaded after the profile is saved), or removal of the current one.
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(initial?.logoUrl ?? null);
   const [agreed, setAgreed] = useState(initial !== null);
+  useEffect(() => () => { if (logoPreview?.startsWith("blob:")) URL.revokeObjectURL(logoPreview); }, [logoPreview]);
+
+  const pickLogo = (file: File | undefined) => {
+    if (!file) return;
+    if (!LOGO_TYPES.includes(file.type)) { setError("Logos must be JPEG, PNG or WebP."); return; }
+    if (file.size > MAX_LOGO_BYTES) { setError("That logo is over 1 MB. Try a smaller one."); return; }
+    setError(null);
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
+  const clearLogo = () => { setLogoFile(null); setLogoPreview(null); };
+
+  /** After the profile is saved: send the new logo, or remove the old one. Returns the latest profile, if any. */
+  const saveLogo = async (): Promise<Organizer | undefined> => {
+    if (logoFile) {
+      const body = new FormData();
+      body.append("file", logoFile);
+      return api<Organizer>("/api/organizer/me/logo", { method: "POST", body });
+    }
+    if (!logoPreview && initial?.logoUrl) return api<Organizer>("/api/organizer/me/logo", { method: "DELETE" });
+  };
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
@@ -82,9 +109,12 @@ export default function OrganizerWizard({ signup = false, initial = null, onSave
         });
         setSession({ user: res.user });
         setForm({ ...form, password: "" }); // don't leave it in memory on a kept-alive page
+        // The account exists now; a failed logo upload shouldn't undo that. It can be added later from Edit profile.
+        await saveLogo().catch(() => undefined);
         onSaved({ user: res.user });
       } else {
-        onSaved({ organizer: await api<Organizer>("/api/organizer/me", { method: "PUT", body: JSON.stringify(organizer()) }) });
+        const saved = await api<Organizer>("/api/organizer/me", { method: "PUT", body: JSON.stringify(organizer()) });
+        onSaved({ organizer: (await saveLogo()) ?? saved });
       }
     } catch (err) {
       setError((err as Error).message);
@@ -93,7 +123,7 @@ export default function OrganizerWizard({ signup = false, initial = null, onSave
     }
   };
 
-  const preview = { id: 0, ...organizer(), website: form.website.trim() || null };
+  const preview = { id: 0, ...organizer(), website: form.website.trim() || null, logoUrl: logoPreview };
 
   return (
     <div className="mx-auto max-w-2xl pt-12">
@@ -134,6 +164,26 @@ export default function OrganizerWizard({ signup = false, initial = null, onSave
           <>
             <Field label="Organisation name" required maxLength={80} value={form.name} onChange={set("name")} autoFocus
               hint="Shown as “Hosted by …” on your events. It must be unique on Seatlock." />
+            <div>
+              <p className="mb-1.5 text-sm font-medium text-fg">Logo <span className="font-normal text-subtle">(optional)</span></p>
+              <div className="flex items-center gap-4">
+                {logoPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- local preview (blob URL) or the current logo
+                  <img src={logoPreview} alt="Logo preview" width={64} height={64} className="h-16 w-16 rounded-full border border-line bg-white object-cover" />
+                ) : (
+                  <span aria-hidden className="grid h-16 w-16 place-items-center rounded-full border border-dashed border-line-strong text-xs text-subtle">No logo</span>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <label className={buttonClass("secondary", "sm", "cursor-pointer")}>
+                    <UploadIcon /> {logoPreview ? "Change" : "Upload logo"}
+                    <input type="file" accept={LOGO_TYPES.join(",")} className="sr-only" aria-label="Upload organisation logo"
+                      onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ""; }} />
+                  </label>
+                  {logoPreview && <Button type="button" variant="ghost" size="sm" onClick={clearLogo}>Remove</Button>}
+                </div>
+              </div>
+              <p className="mt-1.5 text-xs text-subtle">Square JPEG, PNG or WebP, up to 1 MB. Shown in a circle next to your name.</p>
+            </div>
             <Field label="City" required maxLength={60} value={form.city} onChange={set("city")} hint="Where you're based." />
             <TextareaField label="About you" required maxLength={600} rows={5} value={form.about} onChange={set("about")}
               hint={`What kind of events you run and why people come back. ${form.about.trim().length}/600, at least 20.`} />

@@ -8,7 +8,12 @@ export default function HostCard({ host, className = "" }: { host: Host; classNa
     <section aria-labelledby={`host-${host.id}`} className={`rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 ${className}`}>
       <p className="eyebrow">Hosted by</p>
       <div className="mt-3 flex items-start gap-3">
-        <span aria-hidden className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent-subtle font-display text-base font-semibold text-accent-fg">{initials}</span>
+        {host.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- tiny, already sized and cached; nothing for next/image to add
+          <img src={host.logoUrl} alt={`${host.name} logo`} width={44} height={44} className="h-11 w-11 shrink-0 rounded-full border border-line bg-white object-cover" />
+        ) : (
+          <span aria-hidden className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-accent-subtle font-display text-base font-semibold text-accent-fg">{initials}</span>
+        )}
         <div className="min-w-0">
           <h2 id={`host-${host.id}`} className="font-display text-lg font-semibold leading-tight">{host.name}</h2>
           <p className="mt-0.5 inline-flex items-center gap-1 text-sm text-muted"><PinIcon className="text-subtle" />{host.city}</p>

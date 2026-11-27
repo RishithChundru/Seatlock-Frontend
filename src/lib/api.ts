@@ -13,6 +13,7 @@ export type User = { id: number; email: string; name: string; role: Role; organi
 /** The organizer's public profile, shown on their events. null = hosted by Seatlock. */
 export type Host = {
   id: number; name: string; about: string; city: string; contactEmail: string; contactPhone: string; website: string | null;
+  logoUrl: string | null; // absolute (object storage) or same-origin /api/organizers/{id}/logo
 };
 export type OrganizerStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 export type Organizer = Host & {
