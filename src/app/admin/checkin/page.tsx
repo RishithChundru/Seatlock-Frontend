@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import jsQR from "jsqr";
 import { makeConfirmer, viewfinderCrop } from "@/lib/scan";
-import { api, ApiError, CheckInResult, EventItem, useSession, when } from "@/lib/api";
+import { api, ApiError, CheckInResult, EventItem, ManagedEvent, useSession, when } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import { Field, SelectField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
@@ -21,6 +21,8 @@ const MAX_CROP = 480; // decode the viewfinder crop at most this wide: plenty fo
 
 export default function CheckInPage() {
   const session = useSession();
+  const role = session?.user.role;
+  const allowed = role === "ADMIN" || role === "ORGANIZER" || role === "STAFF";
   const [events, setEvents] = useState<EventItem[]>([]);
   const [eventId, setEventId] = useState("");
   const [code, setCode] = useState("");
@@ -35,16 +37,17 @@ export default function CheckInPage() {
   const stream = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    if (session?.user.role !== "ADMIN") return;
-    api<EventItem[]>("/api/events").then(setEvents).catch(() => setEvents([]));
-  }, [session]);
+    if (!allowed) return;
+    // Only events this scanner may admit: all (super admin), own (organizer), employer's (staff).
+    api<ManagedEvent[]>("/api/manage/events").then((rows) => setEvents(rows.map((r) => r.event))).catch(() => setEvents([]));
+  }, [allowed]);
 
   const checkIn = useCallback(async (raw: string) => {
     const value = raw.trim();
     if (!value) return;
     setBusy(true);
     try {
-      const r = await api<CheckInResult>("/api/admin/checkin", {
+      const r = await api<CheckInResult>("/api/manage/checkin", {
         method: "POST", body: JSON.stringify({ code: value, eventId: eventId ? Number(eventId) : null }),
       });
       const who = `${r.holder} · seats ${r.seats.join(", ")} · ${r.eventTitle}`;
@@ -117,8 +120,8 @@ export default function CheckInPage() {
 
   useEffect(() => stopScan, []);
 
-  if (session?.user.role !== "ADMIN") {
-    return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">This page is for admins.</Alert></div>;
+  if (!allowed) {
+    return <div className="mx-auto max-w-md pt-24"><Alert tone="warning">This page is for organizers and their gate staff.</Alert></div>;
   }
 
   const submit = (e: FormEvent) => { e.preventDefault(); checkIn(code); };
@@ -127,7 +130,7 @@ export default function CheckInPage() {
 
   return (
     <div className="mx-auto max-w-lg pt-10">
-      <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeftIcon /> Manage events</Link>
+      {role !== "STAFF" && <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"><ArrowLeftIcon /> Dashboard</Link>}
       <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight">Check in</h1>
       <p className="mt-2 text-muted">Scan the QR on a ticket or type its code. Each ticket gets in once.</p>
 

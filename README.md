@@ -12,8 +12,11 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Search and filters:** text, city, date window, max price and category, all kept in the URL (shareable), with "Load more" pagination
 - **Seat tiers:** VIP and Premium rows are outlined on the map, with a price legend and per-tier checkout lines
 - **QR tickets:** each upcoming ticket shows a QR of its code; tickets are split into Upcoming and Past, and show "Checked in"
-- **Gate check-in** (admin): type the code, or scan the QR with the camera where the browser supports `BarcodeDetector`. Shows green Admit, amber "Already used at…" or red refusal
-- **Admin:** create events with tiers, upload, replace or remove covers, cancel events (every ticket holder is refunded and emailed)
+- **Organizer onboarding:** "Host events" opens a 3-step application (organisation, public contact details, review with a live preview of the "Hosted by" card). Status page shows under review, changes requested (with the note), approved or suspended
+- **Dashboards by role:** the super admin sees every event and an **Organizers** review queue (approve, request changes, suspend, reinstate); organizers see only their events with bookings, revenue and check-ins, plus **Gate staff**; staff see only the scanner
+- **"Hosted by"** card on every organizer's event page
+- **Gate check-in** (organizers, their staff, super admin): type the code, or scan the QR with the camera where the browser supports `BarcodeDetector`. Shows green Admit, amber "Already used at…" or red refusal
+- **Event management:** create events with tiers, upload, replace or remove covers, cancel events (every ticket holder is refunded and emailed)
 - **Account:** profile and change password
 - Interactive seat map: tapping a seat places a 5-minute hold with a countdown; seats in other people's carts are hatched
 - **Live updates:** the map listens to a Server-Sent Events stream (`EventSource`), so other people's holds and bookings appear instantly, with a "Live" indicator and automatic reconnect. A slow 30 s refetch catches holds that expire on their own.
@@ -73,7 +76,8 @@ npm run dev
 
 Open http://localhost:3000.
 - **Customers:** click **Sign in → Create an account**, then pick seats on any event.
-- **Admin:** sign in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you configured in the backend's `.env`. An **Admin** link appears in the nav, where you create events and upload covers.
+- **Super admin:** sign in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you configured in the backend's `.env`. A **Dashboard** link appears in the nav (all events, plus **Organizers** to review applications).
+- **Organizer:** sign up with any other account, open **Host events** and apply; approve it as the super admin, and that account gets its own dashboard.
 
 ### Scripts
 
@@ -112,6 +116,10 @@ Type: Fraunces (display), Geist (UI), Geist Mono (seat labels, ticket codes).
 | `src/app/bookings/page.tsx` | Tickets |
 | `src/app/admin/page.tsx` | Create events (with tiers), manage covers, delete events (admins only) |
 | `src/app/admin/checkin/page.tsx` | Gate check-in by code or QR scan |
+| `src/app/organizer/page.tsx` | Organizer application wizard and status |
+| `src/app/admin/organizers/page.tsx` | Super admin: review and manage organizers |
+| `src/app/admin/staff/page.tsx` | Organizer: gate staff |
+| `src/components/HostCard.tsx` | "Hosted by" organizer profile |
 | `src/app/account/page.tsx` | Profile and change password |
 | `src/components/TicketQr.tsx` | QR code for a ticket |
 | `src/styles/tokens.css` | Design tokens |

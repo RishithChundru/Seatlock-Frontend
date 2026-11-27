@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { payWithRazorpay } from "@/lib/razorpay";
 import { api, API_URL, ApiError, Booking, CheckoutResponse, EventItem, Hold, inr, Seat, TIER_LABEL, useSession, WaitlistStatus, when } from "@/lib/api";
 import EventCover from "@/components/EventCover";
+import HostCard from "@/components/HostCard";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Alert, Skeleton, Toast } from "@/components/ui/Feedback";
@@ -243,6 +244,7 @@ function EventView() {
             <div className="flex items-center gap-2.5"><dt className="sr-only">Venue</dt><PinIcon className="text-subtle" /><dd>{event.venue}</dd></div>
           </dl>
           {event.description && <p className="mt-5 leading-relaxed text-muted">{event.description}</p>}
+          {event.host && <HostCard host={event.host} className="mt-6" />}
           <div className="mt-auto border-t border-line pt-5 max-md:mt-6">
             <div className="flex items-baseline gap-2">
               {tiered && <span className="text-sm text-subtle">from</span>}

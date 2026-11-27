@@ -4,8 +4,14 @@ const BACKEND = (process.env.API_ORIGIN ?? process.env.NEXT_PUBLIC_API_URL ?? "h
 
 /**
  * Route guard (optimistic check, the API still authorizes every call):
- * no session cookie -> /login?next=...; /admin for non-admins -> home.
+ * no session cookie -> /login?next=...; /admin pages by role (the session endpoint reads the role from the database).
  */
+const ADMIN_PAGES: [string, string[]][] = [
+  ["/admin/checkin", ["ADMIN", "ORGANIZER", "STAFF"]],
+  ["/admin/organizers", ["ADMIN"]],
+  ["/admin/staff", ["ORGANIZER"]],
+  ["/admin", ["ADMIN", "ORGANIZER"]],
+];
 export async function proxy(req: NextRequest) {
   const refresh = req.cookies.get("sl_refresh")?.value;
   if (!refresh) {
@@ -20,8 +26,12 @@ export async function proxy(req: NextRequest) {
         cache: "no-store",
         signal: AbortSignal.timeout(4000),
       });
-      if (res.status === 401) return NextResponse.redirect(new URL("/login?next=/admin", req.url));
-      if (res.ok && (await res.json()).role !== "ADMIN") return NextResponse.redirect(new URL("/", req.url));
+      if (res.status === 401) return NextResponse.redirect(new URL("/login?next=" + encodeURIComponent(req.nextUrl.pathname), req.url));
+      if (res.ok) {
+        const role: string = (await res.json()).role;
+        const allowed = ADMIN_PAGES.find(([prefix]) => req.nextUrl.pathname.startsWith(prefix))![1];
+        if (!allowed.includes(role)) return NextResponse.redirect(new URL(role === "STAFF" ? "/admin/checkin" : "/", req.url));
+      }
     } catch {
       // Backend slow (cold start) or down: let the page load; it checks the role and the API enforces it.
     }
@@ -29,4 +39,4 @@ export async function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/bookings/:path*", "/account/:path*", "/admin/:path*"] };
+export const config = { matcher: ["/bookings/:path*", "/account/:path*", "/admin/:path*", "/organizer/:path*"] };

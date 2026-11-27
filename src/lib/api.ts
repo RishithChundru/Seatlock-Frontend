@@ -6,13 +6,26 @@ import { useSyncExternalStore } from "react";
 // which next.config.ts proxies to the backend, so the httpOnly auth cookies belong to this site.
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
-export type User = { id: number; email: string; name: string; role: "USER" | "ADMIN" };
+/** ADMIN = super admin (every event). ORGANIZER = their own events. STAFF = scanner for one organizer. */
+export type Role = "USER" | "ADMIN" | "ORGANIZER" | "STAFF";
+export type User = { id: number; email: string; name: string; role: Role };
+/** The organizer's public profile, shown on their events. null = hosted by Seatlock. */
+export type Host = {
+  id: number; name: string; about: string; city: string; contactEmail: string; contactPhone: string; website: string | null;
+};
+export type OrganizerStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+export type Organizer = Host & {
+  status: OrganizerStatus; reviewNote: string | null; createdAt: string; reviewedAt: string | null;
+  accountName: string; accountEmail: string;
+};
+export type StaffMember = { id: number; name: string; email: string };
 export type Tier = "VIP" | "PREMIUM" | "STANDARD";
 export type EventItem = {
   id: number; title: string; venue: string; category: string; startsAt: string;
   priceCents: number; totalSeats: number; availableSeats: number;
   description: string | null; imageUrl: string | null;
   city: string; tiers: { tier: Tier; priceCents: number }[]; // most expensive first; STANDARD always present
+  host: Host | null;
 };
 export type EventPage = {
   items: EventItem[]; total: number; page: number; size: number; cities: string[]; categories: string[];
@@ -81,7 +94,12 @@ function syncSession() {
   try { localStorage.removeItem("seatlock.session"); } catch { /* old token-in-storage format */ }
   fetch("/api/auth/session", { cache: "no-store", headers: { "X-Requested-With": "fetch" } })
     .then((r) => (r.ok ? r.json() : r.status === 401 ? null : undefined))
-    .then((u: User | null | undefined) => { if (u !== undefined) setSession(u ? { user: u } : null); })
+    .then((u: User | null | undefined) => {
+      if (u === undefined) return;
+      const before = cached.value?.user.role;
+      setSession(u ? { user: u } : null);
+      if (u && before && before !== u.role) refresh(); // new access token carries the new role
+    })
     .catch(() => { /* offline: keep what we have */ });
 }
 
@@ -129,6 +147,21 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(res.status, body?.detail ?? body?.title ?? `Request failed (${res.status})`);
   }
   return (res.status === 204 ? undefined : res.json()) as Promise<T>;
+}
+
+/** Dashboard row: the event plus its sales (confirmed bookings). */
+export type ManagedEvent = { event: EventItem; bookings: number; revenueCents: number; checkedIn: number };
+
+/**
+ * Picks up a role change (approved as organizer, added as staff) without signing out: rotating the session
+ * issues a new access token from the current database role, then the profile is re-read.
+ */
+export async function refreshSession(): Promise<User | null> {
+  await send("/api/auth/refresh", { method: "POST" }).catch(() => undefined);
+  const res = await send("/api/auth/session", {}).catch(() => null);
+  const user = res?.ok ? ((await res.json()) as User) : null;
+  if (user) setSession({ user });
+  return user;
 }
 
 /** Ends the session on the server (revokes the refresh token, clears both cookies), then locally. */
