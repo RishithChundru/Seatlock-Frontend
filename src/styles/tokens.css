@@ -30,7 +30,9 @@
   --coral-400: #ff8a7e;
   --coral-500: #ff6f61;
   --coral-600: #e85a4d;
+  --coral-650: #cf4336; /* button fill: white text 4.7:1 */
   --coral-700: #c23a2e;
+  --coral-750: #bf3a2f;
   --coral-800: #b8352a;
 
   /* Warm cream canvas and warm greys */
@@ -195,9 +197,10 @@
 /* ---------- 3. Component ---------- */
 :root {
   --button-radius: var(--radius-md);
-  --button-primary-bg: var(--sl-accent);
-  --button-primary-bg-hover: var(--sl-accent-hover);
-  --button-primary-fg: var(--sl-on-accent);
+  /* Buttons: a deeper coral so white labels stay readable; bright coral stays for the logo, seats and highlights */
+  --button-primary-bg: var(--coral-650);
+  --button-primary-bg-hover: var(--coral-750);
+  --button-primary-fg: var(--white);
   --button-secondary-bg: var(--sl-surface);
   --button-secondary-border: var(--sl-border-strong);
 
