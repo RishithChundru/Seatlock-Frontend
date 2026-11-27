@@ -1,9 +1,15 @@
+"use client";
+
 import { Suspense } from "react";
+import { useSession } from "@/lib/api";
+import DashboardShell from "@/components/DashboardShell";
 import Logo from "@/components/Logo";
 import Nav from "@/components/Nav";
 
-/** Public pages: top nav, centred content, footer. */
+/** Public pages. Signed in, they open inside the sidebar shell like everything else; visitors get the top nav. */
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
+  const session = useSession();
+  if (session) return <DashboardShell>{children}</DashboardShell>;
   return (
     <>
       <Suspense fallback={<div className="h-16 border-b border-line" />}>

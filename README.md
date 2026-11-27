@@ -109,7 +109,7 @@ Type: Plus Jakarta Sans (display), Inter (UI). Palette: Midnight & Marigold (nav
 
 ## Project structure
 
-Pages live in three route groups, each with its own layout: `(site)` (public pages with the top nav and footer), `(dashboard)` (signed-in pages inside the sidebar shell) and `(auth)` (split-screen sign-in).
+Pages live in three route groups, each with its own layout: `(site)` (public pages: top nav for visitors, the sidebar shell once signed in), `(dashboard)` (signed-in pages inside the sidebar shell) and `(auth)` (split-screen sign-in).
 
 | Path | What |
 |---|---|
@@ -120,7 +120,7 @@ Pages live in three route groups, each with its own layout: `(site)` (public pag
 | `src/app/(site)/staff/invite/page.tsx` | Create a staff account from an invite (public) |
 | `src/app/(auth)/layout.tsx` | Split screen: brand panel with the isometric arena (`components/AuthArt.tsx`), form on the right |
 | `src/app/(auth)/login/page.tsx` | Sign in / sign up |
-| `src/app/(dashboard)/layout.tsx` | Dashboard shell: full-height collapsible sidebar by role, mobile drawer |
+| `src/components/DashboardShell.tsx` | Sidebar shell for every signed-in page, public ones included: collapsible sidebar by role, mobile drawer |
 | `src/app/(dashboard)/me/page.tsx` | Customer overview: stats, spending chart, next ticket, recent bookings |
 | `src/app/(dashboard)/bookings/page.tsx` | Customer tickets |
 | `src/app/(dashboard)/admin/page.tsx` | Manager overview: KPIs, weekly sales chart, latest bookings |
