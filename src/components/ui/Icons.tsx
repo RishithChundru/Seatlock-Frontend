@@ -87,3 +87,6 @@ export const RupeeIcon = (p: SVGProps<SVGSVGElement>) => (
 export const TrendIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><path d="M3 17l6-6 4 4 8-8M15 7h6v6" /></svg>
 );
+export const SearchIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+);

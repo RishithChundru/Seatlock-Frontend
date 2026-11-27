@@ -109,18 +109,19 @@ Type: Plus Jakarta Sans (display), Inter (UI). Palette: Midnight & Marigold (nav
 
 ## Project structure
 
-Pages live in three route groups, each with its own layout: `(site)` (public pages: top nav for visitors, the sidebar shell once signed in), `(dashboard)` (signed-in pages inside the sidebar shell) and `(auth)` (split-screen sign-in).
+Pages live in three route groups, each with its own layout: `(site)` (public pages), `(dashboard)` (signed-in pages inside the sidebar shell) and `(auth)` (split-screen sign-in).
 
 | Path | What |
 |---|---|
-| `src/app/(site)/page.tsx` | Event list |
+| `src/app/(site)/page.tsx` | Event list: search and filters on top, compact event cards |
 | `src/app/(site)/events/[id]/page.tsx` | Seat map and checkout (read-only for managers) |
 | `src/app/(site)/t/[token]/page.tsx` | Public shared ticket |
 | `src/app/(site)/organizer/signup/page.tsx` | Organizer sign-up (public) |
 | `src/app/(site)/staff/invite/page.tsx` | Create a staff account from an invite (public) |
 | `src/app/(auth)/layout.tsx` | Split screen: brand panel with the isometric arena (`components/AuthArt.tsx`), form on the right |
 | `src/app/(auth)/login/page.tsx` | Sign in / sign up |
-| `src/components/DashboardShell.tsx` | Sidebar shell for every signed-in page, public ones included: collapsible sidebar by role, mobile drawer |
+| `src/components/DashboardShell.tsx` | App chrome for every page: organizers, staff and the super admin get a grouped, collapsible sidebar (mobile drawer) |
+| `src/components/SiteFrame.tsx` | Visitors and customers: top bar with tabs and an account menu, bottom tabs on phones |
 | `src/app/(dashboard)/me/page.tsx` | Customer overview: stats, spending chart, next ticket, recent bookings |
 | `src/app/(dashboard)/bookings/page.tsx` | Customer tickets |
 | `src/app/(dashboard)/admin/page.tsx` | Manager overview: KPIs, weekly sales chart, latest bookings |
