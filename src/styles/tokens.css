@@ -5,7 +5,8 @@
  * 2. Semantic   what a value is FOR (bg, text, accent, warning...). Re-pointed per theme.
  * 3. Component  per-component decisions (seat states, buttons, cards), built only from semantic tokens.
  *
- * Palette: light cool-gray canvas, white surfaces, charcoal text, one coral accent (60 / 30 / 10).
+ * Palette: warm cream canvas, white surfaces, charcoal text, one coral accent (60 / 30 / 10).
+ * Warm greys (not blue-greys) for borders, panels and secondary text, so nothing looks cold next to coral.
  * Ice blue is kept for open seats on the seat map, where it reads as "available".
  * Coral (#FF6F61) is a fill colour: text on it is charcoal (5.9:1). White on coral is only 2.7:1,
  * and coral text on ice is 2.5:1, so coral used AS text is the deeper coral-700 (4.8:1+).
@@ -31,6 +32,14 @@
   --coral-600: #e85a4d;
   --coral-700: #c23a2e;
   --coral-800: #b8352a;
+
+  /* Warm cream canvas and warm greys */
+  --cream-50: #faf7f2;
+  --cream-150: #f0ebe3;
+  --cream-250: #e3dcd0;
+  --cream-400: #a8a091;
+  --warm-500: #6f6a60;
+  --warm-600: #57534b;
 
   /* Cool neutrals, charcoal at the dark end */
   --white: #ffffff;
@@ -86,14 +95,14 @@
 /* ---------- 2. Semantic: light (default) ---------- */
 :root {
   color-scheme: light;
-  --sl-bg: var(--gray-50);
+  --sl-bg: var(--cream-50);
   --sl-surface: var(--white);
-  --sl-surface-sunken: var(--gray-150); /* chips, notes, step bars: visible against white cards */
+  --sl-surface-sunken: var(--cream-150); /* chips, notes, step bars: visible against white cards */
   --sl-text: var(--charcoal);
-  --sl-text-muted: var(--gray-600);
-  --sl-text-subtle: var(--gray-500);
-  --sl-border: var(--gray-250); /* hairlines and dividers */
-  --sl-border-strong: var(--gray-400); /* inputs, seat outlines */
+  --sl-text-muted: var(--warm-600);
+  --sl-text-subtle: var(--warm-500); /* 5:1 on cream and white */
+  --sl-border: var(--cream-250); /* hairlines and dividers */
+  --sl-border-strong: var(--cream-400); /* inputs, seat outlines */
 
   --sl-accent: var(--coral-500);
   --sl-accent-hover: var(--coral-600);
@@ -114,9 +123,9 @@
 
   --sl-focus: var(--coral-600);
   --sl-overlay: rgb(17 17 17 / 0.5);
-  --sl-shadow-sm: 0 2px 8px rgb(33 33 33 / 0.04);
-  --sl-shadow-md: 0 8px 24px rgb(33 33 33 / 0.06);
-  --sl-shadow-lg: 0 16px 40px rgb(15 23 42 / 0.08);
+  --sl-shadow-sm: 0 2px 8px rgb(60 45 30 / 0.05);
+  --sl-shadow-md: 0 8px 24px rgb(60 45 30 / 0.07);
+  --sl-shadow-lg: 0 16px 40px rgb(60 45 30 / 0.1);
 }
 
 /* ---------- 2. Semantic: dark ---------- */
