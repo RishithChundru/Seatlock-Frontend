@@ -20,6 +20,7 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - The hold timer comes from the server, so it survives a reload and also covers seats offered from the waitlist
 - **Waitlist:** sold-out events show "Join the waitlist" and your place in line; when someone cancels, the seat appears as yours with a toast and a timer
 - **Cancel bookings** from Tickets (with a confirmation dialog); cancelled tickets show as refunded
+- **Payments with Razorpay Checkout** (test mode): the server creates the order and verifies the signed result before booking; closing the popup keeps your hold, and paying again reopens the same order. With payments off on the API, checkout books instantly
 - Every checkout sends an `Idempotency-Key`, so a double-click or network retry never books twice
 - Tickets page shows "Issuing…" until the backend's RabbitMQ consumer issues the ticket code, plus your waitlists and any seat held for you
 - **Cookie sessions:** both tokens are httpOnly cookies set by the API, so JavaScript never touches a token. Calls go to same-origin `/api/*`, which Next proxies to the backend; an expired access token is refreshed once (shared by all in-flight requests) and the request retried

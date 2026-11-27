@@ -27,6 +27,10 @@ export type Booking = {
   totalCents: number; createdAt: string; seats: string[]; ticketCode: string | null;
   status: "CONFIRMED" | "CANCELLED"; cancelledAt: string | null; checkedInAt: string | null;
 };
+/** booking when done right away (payments off / free); otherwise a Razorpay order to pay. */
+export type CheckoutResponse = {
+  booking: Booking | null; orderId: string | null; amountCents: number | null; currency: string | null; keyId: string | null;
+};
 export type CheckInResult = {
   result: "ADMITTED" | "ALREADY_CHECKED_IN"; bookingId: number; eventTitle: string; holder: string;
   seats: string[]; checkedInAt: string;
