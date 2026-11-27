@@ -38,6 +38,10 @@ function LoginForm() {
       const body = mode === "login" ? { email: form.email, password: form.password } : form;
       const res = await api<{ token: string; user: User }>(`/api/auth/${mode}`, { method: "POST", body: JSON.stringify(body) });
       setSession(res);
+      // Next keeps visited pages alive (hidden) during client navigation, so wipe the credentials now,
+      // or they'd still be in the form when someone opens sign-in after signing out.
+      setForm(EMPTY);
+      setMode("login");
       router.push(next);
     } catch (err) {
       setError((err as Error).message);
