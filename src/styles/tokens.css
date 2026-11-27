@@ -5,11 +5,10 @@
  * 2. Semantic   what a value is FOR (bg, text, accent, warning...). Re-pointed per theme.
  * 3. Component  per-component decisions (seat states, buttons, cards), built only from semantic tokens.
  *
- * Palette: warm cream canvas, white surfaces, charcoal text, one coral accent (60 / 30 / 10).
- * Warm greys (not blue-greys) for borders, panels and secondary text, so nothing looks cold next to coral.
- * Ice blue is kept for open seats on the seat map, where it reads as "available".
- * Coral (#FF6F61) is a fill colour: text on it is charcoal (5.9:1). White on coral is only 2.7:1,
- * and coral text on ice is 2.5:1, so coral used AS text is the deeper coral-700 (4.8:1+).
+ * Palette "Midnight & Marigold": a classic box-office look.
+ *   Light: cool off-white page, white cards, ink text, NAVY buttons and links, MARIGOLD for your seat and highlights.
+ *   Dark:  midnight page, navy cards, MARIGOLD buttons and links.
+ * Contrast: navy/white buttons 10.4:1, marigold/ink 10.6:1, all body and muted text >= 4.5:1.
  *
  * Tailwind utilities are generated from the semantic layer in globals.css (@theme inline),
  * so `bg-surface`, `text-muted`, `border-line` etc. follow the active theme automatically.
@@ -17,57 +16,38 @@
 
 /* ---------- 1. Primitive ---------- */
 :root {
-  /* Ice: the airy canvas */
-  --ice-50: #f2fbfd;
-  --ice-100: #e0f7fa;
-  --ice-200: #baebf2;
-  --ice-300: #80deea;
+  /* Navy: buttons, links, the logo tile */
+  --navy-50: #eef2fb;
+  --navy-200: #b7c3e0;
+  --navy-700: #172f70;
+  --navy-800: #1e3a8a;
 
-  /* Coral: the single accent (CTAs, your seat, urgency) */
-  --coral-50: #fff6f5;
-  --coral-100: #fff0ee;
-  --coral-200: #ffe4e0;
-  --coral-400: #ff8a7e;
-  --coral-500: #ff6f61;
-  --coral-600: #e85a4d;
-  --coral-650: #cf4336; /* button fill: white text 4.7:1 */
-  --coral-700: #c23a2e;
-  --coral-750: #bf3a2f;
-  --coral-800: #b8352a;
+  /* Marigold: your seat, highlights, dark-mode buttons */
+  --marigold-50: #fffbeb;
+  --marigold-100: #fef3c7;
+  --marigold-400: #fbbf24;
+  --marigold-500: #f59e0b;
 
-  /* Warm cream canvas and warm greys */
-  --cream-50: #faf7f2;
-  --cream-150: #f0ebe3;
-  --cream-250: #e3dcd0;
-  --cream-400: #a8a091;
-  --warm-500: #6f6a60;
-  --warm-600: #57534b;
-
-  /* Cool neutrals, charcoal at the dark end */
+  /* Light neutrals */
   --white: #ffffff;
-  --gray-25: #f8fafc;
-  --gray-50: #f4f7f9;
-  --gray-100: #f1f5f9;
-  --gray-150: #e8edf3;
-  --gray-200: #e2e8f0;
-  --gray-250: #d5dde6;
-  --gray-300: #cbd5e1;
-  --gray-400: #94a3b8;
-  --gray-500: #64748b;
-  --gray-600: #5a6577;
-  --gray-700: #334155;
-  --charcoal: #212121;
-  --black: #111111;
+  --mist-50: #f7f8fa;
+  --mist-100: #edf0f5;
+  --mist-200: #e2e6ee;
+  --mist-400: #a3acba;
+  --slate-500: #6b7280;
+  --slate-600: #5b6472;
+  --ink: #111827;
 
-  /* Dark theme neutrals (ice-tinted charcoal) */
-  --night-950: #0b1113;
-  --night-925: #0f171a;
-  --night-900: #141e21;
-  --night-800: #2b3b44;
-  --night-700: #3e525c;
-  --night-400: #7f8f99;
-  --night-300: #a3b3bd;
-  --night-50: #e6f4f6;
+  /* Midnight (dark theme) */
+  --midnight-950: #0b1020;
+  --midnight-925: #0f1526;
+  --midnight-900: #131a2e;
+  --midnight-850: #18213a;
+  --midnight-800: #24304a;
+  --midnight-700: #33415f;
+  --midnight-400: #7c8aa0;
+  --midnight-300: #94a3b8;
+  --midnight-50: #f1f5f9;
 
   --amber-100: #fef3c7;
   --amber-300: #fcd34d;
@@ -97,23 +77,27 @@
 /* ---------- 2. Semantic: light (default) ---------- */
 :root {
   color-scheme: light;
-  --sl-bg: var(--cream-50);
+  --sl-bg: var(--mist-50);
   --sl-surface: var(--white);
-  --sl-surface-sunken: var(--cream-150); /* chips, notes, step bars: visible against white cards */
-  --sl-text: var(--charcoal);
-  --sl-text-muted: var(--warm-600);
-  --sl-text-subtle: var(--warm-500); /* 5:1 on cream and white */
-  --sl-border: var(--cream-250); /* hairlines and dividers */
-  --sl-border-strong: var(--cream-400); /* inputs, seat outlines */
+  --sl-surface-sunken: var(--mist-100); /* chips, notes, step bars */
+  --sl-text: var(--ink);
+  --sl-text-muted: var(--slate-600);
+  --sl-text-subtle: var(--slate-500);
+  --sl-border: var(--mist-200);
+  --sl-border-strong: var(--mist-400); /* inputs */
 
-  --sl-accent: var(--coral-500);
-  --sl-accent-hover: var(--coral-600);
-  --sl-on-accent: var(--charcoal);
-  --sl-accent-subtle: var(--coral-200);
-  --sl-accent-text: var(--coral-800); /* 4.9:1 on the coral tint, 5.9:1 on white */
+  --sl-accent: var(--marigold-500); /* fills: your seat, progress, active underline */
+  --sl-accent-hover: var(--marigold-400);
+  --sl-on-accent: var(--ink);
+  --sl-accent-subtle: var(--marigold-100); /* active menu item, soft badges */
+  --sl-accent-text: var(--navy-800); /* links and accent words */
 
-  --sl-seat-open: var(--ice-100);
-  --sl-seat-open-border: var(--ice-300);
+  --sl-action: var(--navy-800); /* buttons */
+  --sl-action-hover: var(--navy-700);
+  --sl-on-action: var(--white);
+
+  --sl-seat-open: var(--navy-50);
+  --sl-seat-open-border: var(--navy-200);
 
   --sl-success: var(--green-700);
   --sl-success-subtle: var(--green-100);
@@ -123,32 +107,35 @@
   --sl-danger: var(--crimson-700);
   --sl-danger-subtle: var(--crimson-100);
 
-  --sl-focus: var(--coral-600);
-  --sl-overlay: rgb(17 17 17 / 0.5);
-  --sl-shadow-sm: 0 2px 8px rgb(60 45 30 / 0.05);
-  --sl-shadow-md: 0 8px 24px rgb(60 45 30 / 0.07);
-  --sl-shadow-lg: 0 16px 40px rgb(60 45 30 / 0.1);
+  --sl-focus: var(--navy-800);
+  --sl-overlay: rgb(17 24 39 / 0.5);
+  --sl-shadow-sm: 0 2px 8px rgb(17 24 39 / 0.04);
+  --sl-shadow-md: 0 8px 24px rgb(17 24 39 / 0.06);
+  --sl-shadow-lg: 0 16px 40px rgb(17 24 39 / 0.1);
 }
 
 /* ---------- 2. Semantic: dark ---------- */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --sl-bg: var(--night-950);
-    --sl-surface: var(--night-900);
-    --sl-surface-sunken: var(--night-925);
-    --sl-text: var(--night-50);
-    --sl-text-muted: var(--night-300);
-    --sl-text-subtle: var(--night-400);
-    --sl-border: var(--night-800);
-    --sl-border-strong: var(--night-700);
-    --sl-accent: var(--coral-500);
-    --sl-accent-hover: var(--coral-400);
-    --sl-on-accent: var(--charcoal);
-    --sl-accent-subtle: rgb(255 111 97 / 0.14);
-    --sl-accent-text: var(--coral-400);
-    --sl-seat-open: var(--night-925);
-    --sl-seat-open-border: var(--night-700);
+    --sl-bg: var(--midnight-950);
+    --sl-surface: var(--midnight-900);
+    --sl-surface-sunken: var(--midnight-925);
+    --sl-text: var(--midnight-50);
+    --sl-text-muted: var(--midnight-300);
+    --sl-text-subtle: var(--midnight-400);
+    --sl-border: var(--midnight-800);
+    --sl-border-strong: var(--midnight-700);
+    --sl-accent: var(--marigold-400);
+    --sl-accent-hover: var(--marigold-500);
+    --sl-on-accent: var(--ink);
+    --sl-accent-subtle: rgb(251 191 36 / 0.14);
+    --sl-accent-text: var(--marigold-400);
+    --sl-action: var(--marigold-400);
+    --sl-action-hover: var(--marigold-500);
+    --sl-on-action: var(--ink);
+    --sl-seat-open: var(--midnight-850);
+    --sl-seat-open-border: var(--midnight-700);
     --sl-success: var(--green-300);
     --sl-success-subtle: rgb(110 231 183 / 0.12);
     --sl-warning: var(--amber-300);
@@ -156,7 +143,7 @@
     --sl-warning-subtle: rgb(252 211 77 / 0.12);
     --sl-danger: var(--crimson-300);
     --sl-danger-subtle: rgb(252 165 165 / 0.12);
-    --sl-focus: var(--coral-400);
+    --sl-focus: var(--marigold-400);
     --sl-overlay: rgb(0 0 0 / 0.65);
     --sl-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
     --sl-shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
@@ -165,21 +152,24 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --sl-bg: var(--night-950);
-  --sl-surface: var(--night-900);
-  --sl-surface-sunken: var(--night-925);
-  --sl-text: var(--night-50);
-  --sl-text-muted: var(--night-300);
-  --sl-text-subtle: var(--night-400);
-  --sl-border: var(--night-800);
-  --sl-border-strong: var(--night-700);
-  --sl-accent: var(--coral-500);
-  --sl-accent-hover: var(--coral-400);
-  --sl-on-accent: var(--charcoal);
-  --sl-accent-subtle: rgb(255 111 97 / 0.14);
-  --sl-accent-text: var(--coral-400);
-  --sl-seat-open: var(--night-925);
-  --sl-seat-open-border: var(--night-700);
+  --sl-bg: var(--midnight-950);
+  --sl-surface: var(--midnight-900);
+  --sl-surface-sunken: var(--midnight-925);
+  --sl-text: var(--midnight-50);
+  --sl-text-muted: var(--midnight-300);
+  --sl-text-subtle: var(--midnight-400);
+  --sl-border: var(--midnight-800);
+  --sl-border-strong: var(--midnight-700);
+  --sl-accent: var(--marigold-400);
+  --sl-accent-hover: var(--marigold-500);
+  --sl-on-accent: var(--ink);
+  --sl-accent-subtle: rgb(251 191 36 / 0.14);
+  --sl-accent-text: var(--marigold-400);
+  --sl-action: var(--marigold-400);
+  --sl-action-hover: var(--marigold-500);
+  --sl-on-action: var(--ink);
+  --sl-seat-open: var(--midnight-850);
+  --sl-seat-open-border: var(--midnight-700);
   --sl-success: var(--green-300);
   --sl-success-subtle: rgb(110 231 183 / 0.12);
   --sl-warning: var(--amber-300);
@@ -187,7 +177,7 @@
   --sl-warning-subtle: rgb(252 211 77 / 0.12);
   --sl-danger: var(--crimson-300);
   --sl-danger-subtle: rgb(252 165 165 / 0.12);
-  --sl-focus: var(--coral-400);
+  --sl-focus: var(--marigold-400);
   --sl-overlay: rgb(0 0 0 / 0.65);
   --sl-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
   --sl-shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
@@ -197,10 +187,9 @@
 /* ---------- 3. Component ---------- */
 :root {
   --button-radius: var(--radius-md);
-  /* Buttons: brand coral with white, semibold labels (chosen look; white on #FF6F61 is 2.7:1, below the 4.5:1 guideline) */
-  --button-primary-bg: var(--coral-500);
-  --button-primary-bg-hover: var(--coral-600);
-  --button-primary-fg: var(--white);
+  --button-primary-bg: var(--sl-action);
+  --button-primary-bg-hover: var(--sl-action-hover);
+  --button-primary-fg: var(--sl-on-action);
   --button-secondary-bg: var(--sl-surface);
   --button-secondary-border: var(--sl-border-strong);
 
@@ -220,10 +209,11 @@
   --seat-available-border: var(--sl-seat-open-border);
   --seat-available-fg: var(--sl-text-muted);
   --seat-hover-border: var(--sl-text);
-  --seat-mine-bg: var(--sl-accent);
+  --seat-mine-bg: var(--sl-accent); /* marigold: your seat */
   --seat-mine-fg: var(--sl-on-accent);
-  --seat-held-bg: var(--sl-warning-subtle);
-  --seat-held-stripe: var(--sl-warning-mark);
+  /* Someone else's hold: grey stripes, so it can't be mistaken for your (marigold) seat */
+  --seat-held-bg: var(--sl-surface-sunken);
+  --seat-held-stripe: var(--sl-border-strong);
   --seat-booked-bg: var(--sl-border);
   --seat-vip-border: var(--amber-500);
   --seat-premium-border: var(--sl-text-muted);

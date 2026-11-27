@@ -164,7 +164,7 @@ export default function CheckInPage() {
               "left-0 bottom-0 border-l-4 border-b-4 rounded-bl-2xl", "right-0 bottom-0 border-r-4 border-b-4 rounded-br-2xl"].map((c) => (
               <span key={c} className={`absolute h-10 w-10 border-white ${c}`} />
             ))}
-            <span className="scan-line absolute inset-x-4 h-0.5 rounded-full bg-[var(--coral-500)] shadow-[0_0_12px_var(--coral-500)]" />
+            <span className="scan-line absolute inset-x-4 h-0.5 rounded-full bg-[var(--marigold-400)] shadow-[0_0_12px_var(--marigold-400)]" />
           </div>
         </div>
 
