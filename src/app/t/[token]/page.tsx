@@ -41,7 +41,7 @@ function SharedTicketView() {
 
   const cancelled = ticket.status === "CANCELLED";
   const over = Date.parse(ticket.startsAt) < now - 6 * 3600_000; // shows stay "on" a few hours after the start
-  const usable = !cancelled && !over && ticket.ticketCode;
+  const usable = !cancelled && !over && !ticket.checkedInAt && ticket.ticketCode;
 
   return (
     <div className="mx-auto max-w-md pt-12">
@@ -71,6 +71,8 @@ function SharedTicketView() {
             </>
           ) : cancelled ? (
             <p className="text-muted">This booking was cancelled, so the ticket can&apos;t be used.</p>
+          ) : ticket.checkedInAt ? (
+            <p className="text-muted">This ticket was already used at the gate at {when(ticket.checkedInAt, { hour: "numeric", minute: "2-digit" })}.</p>
           ) : over ? (
             <p className="text-muted">This event has already happened.</p>
           ) : (

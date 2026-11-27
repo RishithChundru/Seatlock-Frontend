@@ -32,7 +32,7 @@ export type Booking = {
 export type CheckoutResponse = {
   booking: Booking | null; orderId: string | null; amountCents: number | null; currency: string | null; keyId: string | null;
 };
-/** Public view of a shared ticket (no email, price or booking id). ticketCode is null once cancelled. */
+/** Public view of a shared ticket (no email, price or booking id). ticketCode is null once cancelled or used. */
 export type SharedTicket = {
   eventId: number; eventTitle: string; venue: string; startsAt: string; seats: string[];
   ticketCode: string | null; status: "CONFIRMED" | "CANCELLED"; checkedInAt: string | null; sharedBy: string;
