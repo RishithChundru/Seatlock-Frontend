@@ -126,13 +126,13 @@ export default function OrganizerWizard({ signup = false, initial = null, onSave
   const preview = { id: 0, ...organizer(), website: form.website.trim() || null, logoUrl: logoPreview };
 
   return (
-    <div className="mx-auto max-w-2xl pt-12">
+    <div className={signup ? "w-full max-w-xl" : "mx-auto max-w-2xl pt-12"}>
       <p className="eyebrow">For event organizers</p>
-      <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">
+      <h1 className={`mt-2 font-display font-bold tracking-tight ${signup ? "text-3xl" : "text-4xl"}`}>
         {signup ? "Create an organizer account" : initial?.status === "APPROVED" ? "Edit your organizer profile" : "Edit your application"}
       </h1>
       {signup && (
-        <p className="mt-2 text-muted">
+        <p className="mt-2 text-sm text-muted">
           Sell tickets with live seat maps, QR check-in and automatic refunds. This is a separate account from a customer
           account; we review every organizer before they can sell.
         </p>

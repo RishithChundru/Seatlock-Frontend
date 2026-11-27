@@ -13,6 +13,7 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Seat tiers:** VIP and Premium rows are outlined on the map, with a price legend and per-tier checkout lines
 - **QR tickets:** each upcoming ticket shows a QR of its code; tickets are split into Upcoming and Past, and show "Checked in"
 - **Organizer sign-up, separate from customers:** `/organizer/signup` (linked in the footer and on customer sign-up) is a 4-step form: account, organisation (with an optional logo upload and preview), public contact details (Indian mobile with a +91 picker), review with a live preview of the "Hosted by" card. Until approved the organizer's dashboard is read-only; the status page shows pending, changes requested (with the note), approved or suspended
+- **Dashboard with a collapsible sidebar** (`/admin`; a pill tab bar on phones), sections by role: Overview (upcoming events, seats sold, revenue, check-ins, what needs attention), Events (search; super admin can filter by organizer), Create event, Scan tickets, Organizer requests (super admin), Gate staff and Public profile (organizers), Browse live site. Admin, organizer and staff accounts never book: no Tickets link, and event pages show the live seat map read-only
 - **Dashboards by role:** the super admin sees every event and an **Organizers** review queue (approve, request changes, suspend, reinstate); organizers see only their events with bookings, revenue and check-ins, plus **Gate staff** (invite by email, resend or cancel invites, remove); staff see their organizer's dashboard read-only and the scanner. Invited staff create their account at `/staff/invite`
 - **"Hosted by"** card on every organizer's event page
 - **Gate check-in** (organizers, their staff, super admin): type the code, or scan the QR with the camera where the browser supports `BarcodeDetector`. Shows green Admit, amber "Already used at…" or red refusal
@@ -104,31 +105,44 @@ Styling is built on a three-layer token architecture in [`src/styles/tokens.css`
 
 Shared components live in [`src/components/ui`](src/components/ui): `Button`, `Badge`, `Field` / `PasswordField` / `SelectField` / `TextareaField`, `Alert`, `Skeleton`, `Toast` and a small icon set.
 
-Type: Fraunces (display), Geist (UI), Geist Mono (seat labels, ticket codes).
+Type: Plus Jakarta Sans (display), Inter (UI). Palette: Midnight & Marigold (navy actions, marigold accents) in light and dark.
 
 ## Project structure
 
+Pages live in three route groups, each with its own layout: `(site)` (public pages), `(dashboard)` (signed-in pages inside the sidebar shell) and `(auth)` (split-screen sign-in).
+
 | Path | What |
 |---|---|
-| `src/app/page.tsx` | Event list |
-| `src/app/events/[id]/page.tsx` | Seat map and checkout |
-| `src/app/login/page.tsx` | Sign in / sign up |
-| `src/app/bookings/page.tsx` | Tickets |
-| `src/app/admin/page.tsx` | Create events (with tiers), manage covers, delete events (admins only) |
-| `src/app/admin/checkin/page.tsx` | Gate check-in by code or QR scan |
-| `src/app/organizer/signup/page.tsx` | Organizer sign-up (public) |
-| `src/app/organizer/page.tsx` | Organizer application status and profile |
+| `src/app/(site)/page.tsx` | Event list: search and filters on top, compact event cards |
+| `src/app/(site)/events/[id]/page.tsx` | Seat map and checkout (read-only for managers) |
+| `src/app/(site)/t/[token]/page.tsx` | Public shared ticket |
+| `src/app/(auth)/organizer/signup/page.tsx` | Organizer sign-up (public, split screen like sign-in) |
+| `src/app/(auth)/staff/invite/page.tsx` | Create a staff account from an invite (public) |
+| `src/app/(auth)/layout.tsx` | Split screen: brand panel with the animated isometric arena (`components/AuthArt.tsx`, CSS only, still for reduced motion), form on the right |
+| `src/app/(auth)/login/page.tsx` | Sign in / sign up |
+| `src/components/DashboardShell.tsx` | App chrome for every page: organizers, staff and the super admin get a grouped, collapsible sidebar (mobile drawer) |
+| `src/components/SiteFrame.tsx` | Customers: top bar with tabs and the profile menu, bottom tabs on phones |
+| `src/components/ProfileMenu.tsx` | Profile menu for every role; account settings (profile, change password) open in a modal |
+| `src/app/(dashboard)/me/page.tsx` | Customer overview: stats, spending chart, next ticket, recent bookings |
+| `src/app/(dashboard)/bookings/page.tsx` | Customer tickets: newest first, search, filters (upcoming, checked in, past, cancelled, event cancelled) |
+| `src/app/(dashboard)/admin/page.tsx` | Manager overview: KPIs, weekly sales chart, latest bookings |
+| `src/app/(dashboard)/admin/events/page.tsx` | Events: sales, covers, cancel, search, organizer filter |
+| `src/app/(dashboard)/admin/events/new/page.tsx` | Create event (details, seat map, tiers) |
+| `src/app/(dashboard)/admin/checkin/page.tsx` | Gate check-in by code or QR scan |
+| `src/app/(dashboard)/admin/organizers/page.tsx` | Super admin: review and manage organizers |
+| `src/app/(dashboard)/admin/staff/page.tsx` | Organizer: gate staff and invites |
+| `src/app/(dashboard)/organizer/page.tsx` | Organizer application status and profile |
+| `src/app/(dashboard)/account/page.tsx` | Account settings as a page, for direct links |
+| `src/lib/dashboard.ts` | What each role may see and do in the dashboard |
+| `src/components/DashboardUI.tsx` | Page header, panels, stat cards, status pills, tables |
+| `src/components/Charts.tsx` | Area and bar charts (Recharts), themed with the design tokens |
 | `src/components/OrganizerWizard.tsx` | Sign-up / edit wizard |
-| `src/app/admin/organizers/page.tsx` | Super admin: review and manage organizers |
-| `src/app/admin/staff/page.tsx` | Organizer: gate staff and invites |
-| `src/app/staff/invite/page.tsx` | Create a staff account from an invite (public) |
 | `src/components/HostCard.tsx` | "Hosted by" organizer profile |
-| `src/app/account/page.tsx` | Profile and change password |
 | `src/components/TicketQr.tsx` | QR code for a ticket |
 | `src/styles/tokens.css` | Design tokens |
 | `src/components/ui/*` | Component library |
 | `src/lib/api.ts` | API client (cookie auth, refresh-and-retry), session store, formatters |
-| `src/proxy.ts` | Route guard for signed-in and admin pages |
+| `src/proxy.ts` | Route guard: signed out, everything but sign-in, sign-up and shared tickets goes to `/login`; per-role dashboard access |
 | `next.config.ts` | `/api/*` proxy to the backend |
 
 ---

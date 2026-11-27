@@ -1,0 +1,103 @@
+/**
+ * Isometric (3D-style) arena for the sign-in panel: a stage and screen, rows of seats, your two marigold seats,
+ * and a floating ticket. Pure SVG, drawn back to front; colours are fixed because the panel is always navy.
+ */
+import { LogoMark } from "./Logo";
+
+const S = 26;
+const OX = 250, OY = 92;
+type Face = { top: string; left: string; right: string };
+
+const P = (x: number, y: number, z: number) => `${(OX + (x - y) * S).toFixed(1)},${(OY + ((x + y) * S) / 2 - z * S).toFixed(1)}`;
+
+function box(key: string, x: number, y: number, z: number, w: number, d: number, h: number, c: Face) {
+  return (
+    <g key={key}>
+      <polygon points={[P(x, y + d, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x, y + d, z + h)].join(" ")} fill={c.left} />
+      <polygon points={[P(x + w, y, z), P(x + w, y + d, z), P(x + w, y + d, z + h), P(x + w, y, z + h)].join(" ")} fill={c.right} />
+      <polygon points={[P(x, y, z + h), P(x + w, y, z + h), P(x + w, y + d, z + h), P(x, y + d, z + h)].join(" ")} fill={c.top} />
+    </g>
+  );
+}
+
+const FLOOR: Face = { top: "#1b2d66", left: "#13214d", right: "#0f1a3f" };
+const STAGE: Face = { top: "#2c4595", left: "#1f3577", right: "#182b63" };
+const SCREEN: Face = { top: "#c7d4f2", left: "#e8eefc", right: "#b9c8ec" };
+const OPEN: Face = { top: "#4767c4", left: "#2f4ea6", right: "#253f8c" };
+const MINE: Face = { top: "#fcd34d", left: "#f59e0b", right: "#d97706" };
+const TAKEN: Face = { top: "#64748b", left: "#4b5563", right: "#3d4654" };
+
+// 178 x 84 ticket: 12px corners, an 8px notch halfway down each side (same cut as the logo mark).
+const TICKET = "M12 0H166A12 12 0 0 1 178 12V34A8 8 0 0 0 178 50V72A12 12 0 0 1 166 84H12A12 12 0 0 1 0 72V50A8 8 0 0 0 0 34V12A12 12 0 0 1 12 0Z";
+
+const ROWS = 5, COLS = 8;
+const taken = new Set(["0-1", "0-6", "1-2", "2-6", "2-7", "3-0", "4-3", "4-4"]);
+const mine = new Set(["2-3", "2-4"]);
+// Open seats that someone else grabs and lets go of, on a loop, like a live seat map.
+const flicker: Record<string, string> = { "1-5": "0s", "3-6": "2.2s", "0-3": "4.1s", "4-1": "5.6s" };
+
+// Pure CSS, so it costs nothing on the main thread; motion stops for people who ask for less of it.
+const MOTION = `
+.sl-float { animation: sl-float 5s ease-in-out infinite; }
+@keyframes sl-float { 50% { transform: translateY(-9px); } }
+.sl-dash { animation: sl-dash 1.4s linear infinite; }
+@keyframes sl-dash { to { stroke-dashoffset: -16; } }
+.sl-glow { animation: sl-glow 2.4s ease-in-out infinite; }
+@keyframes sl-glow { 50% { filter: brightness(1.25) drop-shadow(0 0 6px rgb(251 191 36 / 0.7)); } }
+.sl-ping { transform-box: fill-box; transform-origin: center; animation: sl-ping 2.4s ease-out infinite; }
+@keyframes sl-ping { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.9); opacity: 0; } }
+.sl-grab { opacity: 0; animation: sl-grab 7s ease-in-out infinite; }
+@keyframes sl-grab { 0%, 12% { opacity: 0; } 18%, 48% { opacity: 1; } 55%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sl-float, .sl-dash, .sl-glow, .sl-ping, .sl-grab { animation: none; } }
+`;
+
+export default function AuthArt({ className = "" }: { className?: string }) {
+  const seats = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const key = `${r}-${c}`;
+      const color = mine.has(key) ? MINE : taken.has(key) ? TAKEN : OPEN;
+      const x = 0.5 + c * 1.05, y = 0.4 + r * 1.2;
+      const seat = (c2: Face) => [box(`s${key}`, x, y, 0, 0.8, 0.62, 0.3, c2), box(`b${key}`, x, y + 0.6, 0, 0.8, 0.2, 0.78, c2)]; // cushion, backrest
+      seats.push(mine.has(key) ? <g key={key} className="sl-glow">{seat(color)}</g> : <g key={key}>{seat(color)}</g>);
+      // drawn right after its seat, so seats in front still cover it
+      if (flicker[key]) seats.push(<g key={`h${key}`} className="sl-grab" style={{ animationDelay: flicker[key] }}>{seat(TAKEN)}</g>);
+    }
+  }
+  return (
+    <svg viewBox="0 0 520 400" className={className} role="img" aria-label="An arena seat map with two of your seats highlighted in gold and a floating ticket">
+      <style>{MOTION}</style>
+      {/* soft glow behind the scene */}
+      <ellipse cx="250" cy="230" rx="230" ry="120" fill="#1e3a8a" opacity="0.35" />
+      {box("floor", -0.6, -3.1, -0.45, 10.2, 10.2, 0.45, FLOOR)}
+      {box("screen", 0.2, -3.0, 0, 8.4, 0.25, 2.3, SCREEN)}
+      {box("stage", 0.2, -2.6, 0, 8.4, 1.8, 0.45, STAGE)}
+      <polygon points={[P(0.2, -0.8, 0.46), P(8.6, -0.8, 0.46), P(8.6, -0.7, 0.46), P(0.2, -0.7, 0.46)].join(" ")} fill="#fbbf24" opacity="0.9" />
+      {seats}
+
+      {/* floating ticket, cut like the logo's ticket: rounded, a notch on each side, a perforated stub */}
+      <g className="sl-float"><g transform="translate(318 34) rotate(-9)">
+        <defs><clipPath id="auth-ticket"><path d={TICKET} /></clipPath></defs>
+        <path d={TICKET} transform="translate(6 10)" fill="#000" opacity="0.25" />
+        <path d={TICKET} fill="#ffffff" />
+        <rect width="50" height="84" fill="#fbbf24" clipPath="url(#auth-ticket)" />
+        <line x1="50" y1="8" x2="50" y2="76" stroke="#1e3a8a" strokeWidth="2.5" strokeDasharray="4 4" />
+        <text x="25" y="47" textAnchor="middle" fontSize="15" fontWeight="800" fill="#111827" transform="rotate(-90 25 42)">ADMIT</text>
+        <text x="62" y="28" fontSize="14" fontWeight="800" fill="#111827" letterSpacing="0.5">SEATLOCK</text>
+        <text x="62" y="46" fontSize="11" fill="#5b6472">Row C · 4, 5</text>
+        <text x="62" y="64" fontSize="11" fontWeight="700" fill="#1e3a8a">Sat · 7:30 PM</text>
+        <g transform="translate(148 50)"><LogoMark size={24} /></g>
+      </g></g>
+      {/* lock badge */}
+      <g transform="translate(494 122)">
+        <circle r="22" fill="#fbbf24" className="sl-ping" />
+        <circle r="22" fill="#fbbf24" />
+        <circle r="22" fill="none" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="6" />
+        <rect x="-8" y="-2" width="16" height="12" rx="3" fill="#111827" />
+        <path d="M-5 -2v-4a5 5 0 0 1 10 0v4" fill="none" stroke="#111827" strokeWidth="2.6" />
+      </g>
+      {/* dotted line from your seats up to the ticket */}
+      <path d={`M ${P(4.2, 2.8, 0.9).replace(",", " ")} C 320 170, 340 140, 352 122`} fill="none" stroke="#fbbf24" strokeWidth="2" strokeDasharray="2 6" strokeLinecap="round" className="sl-dash" />
+    </svg>
+  );
+}

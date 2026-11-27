@@ -23,9 +23,9 @@
   --color-danger: var(--sl-danger);
   --color-danger-subtle: var(--sl-danger-subtle);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-fraunces);
+  --font-display: var(--font-jakarta);
 
   /* rounded-sm/md/lg/xl read --radius-* directly; the unlayered primitives in tokens.css override Tailwind's defaults */
 
@@ -111,3 +111,6 @@ dialog::backdrop { background: var(--sl-overlay); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* Plus Jakarta Sans headings read best a touch tighter */
+.font-display { letter-spacing: -0.02em; }
