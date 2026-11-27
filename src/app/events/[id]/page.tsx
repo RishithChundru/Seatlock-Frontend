@@ -38,6 +38,9 @@ function EventView() {
   const idemKey = useRef<string | null>(null);
   // Seats we believe we hold, to notice holds that expire or arrive from the waitlist.
   const mine = useRef<Set<number> | null>(null);
+  // While Razorpay Checkout is open: the server has extended the hold, so no countdown or "ran out" toast.
+  const paying = useRef(false);
+  const [payingNow, setPayingNow] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const loginUrl = `/login?next=/events/${id}`;
   const clearToast = useCallback(() => setToast(null), []);
@@ -58,7 +61,7 @@ function EventView() {
       if (before) {
         const gained = s.filter((x) => x.mine && !before.has(x.id));
         if (gained.length) setToast(`Good news: seat ${gained.map((x) => x.row + x.number).join(", ")} from the waitlist is held for you.`);
-        else if ([...before].some((x) => !held.has(x))) setToast("Your hold on a seat ran out. Pick it again if it's still free.");
+        else if (!paying.current && [...before].some((x) => !held.has(x))) setToast("Your hold on a seat ran out. Pick it again if it's still free.");
       }
       mine.current = held;
       setError(null);
@@ -87,12 +90,12 @@ function EventView() {
   }, [selected]);
 
   useEffect(() => {
-    if (holdUntil === null) return;
+    if (holdUntil === null || payingNow) return; // the server extended the hold for payment; no countdown meanwhile
     const t = setInterval(() => setNow(Date.now()), 1000);
     // Refetch the moment the earliest hold runs out so the map and timer stay honest.
     const expire = setTimeout(load, Math.max(0, holdUntil - Date.now()) + 500);
     return () => { clearInterval(t); clearTimeout(expire); };
-  }, [holdUntil, load]);
+  }, [holdUntil, load, payingNow]);
 
   useEffect(() => {
     if (done) dialog.current?.showModal();
@@ -151,14 +154,21 @@ function EventView() {
         body: JSON.stringify({ eventId: Number(id), seatIds: selected.map((s) => s.id) }),
       });
       if (res.booking) { finish(res.booking); return; } // payments off, or a free order
-      load(); // shows the longer hold the server just gave us for paying
-      const paid = await payWithRazorpay({
-        keyId: res.keyId!, orderId: res.orderId!, amountCents: res.amountCents!,
-        description: `${selected.length} seat${selected.length === 1 ? "" : "s"} · ${event?.title ?? ""}`,
-        name: session.user.name, email: session.user.email,
-      });
+      paying.current = true;
+      setPayingNow(true);
+      let paid;
+      try {
+        paid = await payWithRazorpay({
+          keyId: res.keyId!, orderId: res.orderId!, amountCents: res.amountCents!,
+          description: `${selected.length} seat${selected.length === 1 ? "" : "s"} · ${event?.title ?? ""}`,
+          name: session.user.name, email: session.user.email,
+        });
+      } finally {
+        paying.current = false;
+        setPayingNow(false);
+      }
       // The Idempotency-Key is kept, so paying again reopens this same order instead of creating another.
-      if (!paid) { setToast("Payment cancelled. Your seats stay held for a few more minutes."); return; }
+      if (!paid) { setToast("Payment cancelled. Your seats stay held for a few more minutes."); load(); return; }
       finish(await api<Booking>("/api/payments/verify", {
         method: "POST",
         body: JSON.stringify({ orderId: paid.razorpay_order_id, paymentId: paid.razorpay_payment_id, signature: paid.razorpay_signature }),
@@ -344,14 +354,18 @@ function EventView() {
           <div className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)]">
             <h2 id="summary-h" className="font-display text-xl font-semibold">Your seats</h2>
 
-            {secondsLeft !== null && selected.length > 0 ? (
+            {payingNow ? (
+              <p role="status" className="mt-4 flex items-center gap-1.5 rounded-md bg-sunken px-3 py-2 text-sm text-muted">
+                <ClockIcon /> Payment in progress. Your seats are reserved until you finish.
+              </p>
+            ) : secondsLeft !== null && selected.length > 0 ? (
               <div role="timer" aria-label="Hold time remaining" className="mt-4">
                 <div className={`flex items-center justify-between text-sm ${secondsLeft < 60 ? "text-danger" : "text-muted"}`}>
                   <span className="inline-flex items-center gap-1.5"><ClockIcon /> Held for you</span>
                   <span className="font-mono tabular">{Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}</span>
                 </div>
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-sunken">
-                  <div className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${secondsLeft < 60 ? "bg-danger" : "bg-accent"}`} style={{ width: `${(secondsLeft / HOLD_SECONDS) * 100}%` }} />
+                  <div className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${secondsLeft < 60 ? "bg-danger" : "bg-accent"}`} style={{ width: `${Math.min(100, (secondsLeft / HOLD_SECONDS) * 100)}%` }} />
                 </div>
               </div>
             ) : (

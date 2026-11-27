@@ -13,7 +13,7 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Seat tiers:** VIP and Premium rows are outlined on the map, with a price legend and per-tier checkout lines
 - **QR tickets:** each upcoming ticket shows a QR of its code; tickets are split into Upcoming and Past, and show "Checked in"
 - **Gate check-in** (admin): type the code, or scan the QR with the camera where the browser supports `BarcodeDetector`. Shows green Admit, amber "Already used at…" or red refusal
-- **Admin:** create events with tiers, upload, replace or remove covers, delete events
+- **Admin:** create events with tiers, upload, replace or remove covers, cancel events (every ticket holder is refunded and emailed)
 - **Account:** profile and change password
 - Interactive seat map: tapping a seat places a 5-minute hold with a countdown; seats in other people's carts are hatched
 - **Live updates:** the map listens to a Server-Sent Events stream (`EventSource`), so other people's holds and bookings appear instantly, with a "Live" indicator and automatic reconnect. A slow 30 s refetch catches holds that expire on their own.

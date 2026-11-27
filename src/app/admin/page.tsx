@@ -96,7 +96,7 @@ export default function AdminPage() {
     if (!deleting) return;
     try {
       await api(`/api/events/${deleting.id}`, { method: "DELETE" });
-      setToast(`Deleted "${deleting.title}".`);
+      setToast(`Cancelled "${deleting.title}". Ticket holders are being refunded and emailed.`);
       dialog.current?.close();
       load();
     } catch (err) {
@@ -191,14 +191,14 @@ export default function AdminPage() {
       >
         {deleting && (
           <div className="p-7">
-            <h2 id="delete-title" className="font-display text-2xl font-semibold">Delete this event?</h2>
+            <h2 id="delete-title" className="font-display text-2xl font-semibold">Cancel and delete this event?</h2>
             <p className="mt-3 text-muted">
-              &ldquo;{deleting.title}&rdquo; and its seat map, cover and waitlist are removed for good. Events with confirmed bookings
-              can&apos;t be deleted until those are cancelled.
+              &ldquo;{deleting.title}&rdquo; and its seat map, cover and waitlist are removed for good. Everyone with tickets is cancelled,
+              refunded in full and emailed.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <Button variant="secondary" onClick={() => dialog.current?.close()}>Keep event</Button>
-              <Button onClick={confirmDelete}>Delete event</Button>
+              <Button onClick={confirmDelete}>Cancel &amp; delete</Button>
             </div>
           </div>
         )}
