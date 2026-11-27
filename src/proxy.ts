@@ -13,6 +13,7 @@ const ADMIN_PAGES: [string, string[]][] = [
   ["/admin", ["ADMIN", "ORGANIZER"]],
 ];
 export async function proxy(req: NextRequest) {
+  if (req.nextUrl.pathname.startsWith("/organizer/signup")) return NextResponse.next(); // public: organizer sign-up
   const refresh = req.cookies.get("sl_refresh")?.value;
   if (!refresh) {
     const login = new URL("/login", req.url);
@@ -28,9 +29,12 @@ export async function proxy(req: NextRequest) {
       });
       if (res.status === 401) return NextResponse.redirect(new URL("/login?next=" + encodeURIComponent(req.nextUrl.pathname), req.url));
       if (res.ok) {
-        const role: string = (await res.json()).role;
-        const allowed = ADMIN_PAGES.find(([prefix]) => req.nextUrl.pathname.startsWith(prefix))![1];
+        const { role, organizerStatus } = (await res.json()) as { role: string; organizerStatus: string | null };
+        const path = req.nextUrl.pathname;
+        const allowed = ADMIN_PAGES.find(([prefix]) => path.startsWith(prefix))![1];
         if (!allowed.includes(role)) return NextResponse.redirect(new URL(role === "STAFF" ? "/admin/checkin" : "/", req.url));
+        // Pending / suspended organizers get a read-only dashboard, not the scanner or staff pages.
+        if (role === "ORGANIZER" && organizerStatus !== "APPROVED" && path !== "/admin") return NextResponse.redirect(new URL("/admin", req.url));
       }
     } catch {
       // Backend slow (cold start) or down: let the page load; it checks the role and the API enforces it.

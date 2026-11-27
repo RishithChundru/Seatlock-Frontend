@@ -8,7 +8,8 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080
 
 /** ADMIN = super admin (every event). ORGANIZER = their own events. STAFF = scanner for one organizer. */
 export type Role = "USER" | "ADMIN" | "ORGANIZER" | "STAFF";
-export type User = { id: number; email: string; name: string; role: Role };
+/** organizerStatus: for organizer accounts only. Anything but APPROVED means a read-only dashboard. */
+export type User = { id: number; email: string; name: string; role: Role; organizerStatus?: OrganizerStatus | null };
 /** The organizer's public profile, shown on their events. null = hosted by Seatlock. */
 export type Host = {
   id: number; name: string; about: string; city: string; contactEmail: string; contactPhone: string; website: string | null;
@@ -96,9 +97,9 @@ function syncSession() {
     .then((r) => (r.ok ? r.json() : r.status === 401 ? null : undefined))
     .then((u: User | null | undefined) => {
       if (u === undefined) return;
-      const before = cached.value?.user.role;
+      const before = cached.value?.user;
       setSession(u ? { user: u } : null);
-      if (u && before && before !== u.role) refresh(); // new access token carries the new role
+      if (u && before && before.role !== u.role) refresh(); // new access token carries the new role
     })
     .catch(() => { /* offline: keep what we have */ });
 }

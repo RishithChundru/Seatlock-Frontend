@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 import { api, setSession, User } from "@/lib/api";
@@ -73,6 +74,11 @@ function LoginForm() {
           </button>
         </p>
 
+        {mode === "register" && (
+          <p className="mt-3 rounded-md bg-sunken px-3 py-2 text-xs text-muted">
+            This creates a customer account for booking tickets. Hosting events? <Link href="/organizer/signup" className="font-medium text-accent-fg underline-offset-4 hover:underline">Create an organizer account</Link>.
+          </p>
+        )}
         {/* key={mode}: fresh inputs per mode, so browser-filled values don't follow you across */}
         <form key={mode} onSubmit={submit} className="mt-6 space-y-4">
           {error && <Alert>{error}</Alert>}

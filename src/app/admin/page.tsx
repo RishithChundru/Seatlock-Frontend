@@ -31,6 +31,12 @@ export default function AdminPage() {
 
   const role = session?.user.role;
   const superAdmin = role === "ADMIN";
+  const status = session?.user.organizerStatus;
+  const readOnly = role === "ORGANIZER" && status !== "APPROVED"; // pending, needs changes or suspended
+  const [requests, setRequests] = useState(0);
+  useEffect(() => {
+    if (superAdmin) api<unknown[]>("/api/admin/organizers?status=PENDING").then((l) => setRequests(l.length)).catch(() => undefined);
+  }, [superAdmin]);
   // The API returns only what this user may manage: every event for the super admin, their own for an organizer.
   const load = useCallback(() => api<ManagedEvent[]>("/api/manage/events").then(setEvents).catch((e) => setError(e.message)), []);
   useEffect(() => { if (role === "ADMIN" || role === "ORGANIZER") load(); }, [role, load]);
@@ -120,12 +126,26 @@ export default function AdminPage() {
           <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">{superAdmin ? "All events" : "Your events"}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          {superAdmin && <Button href="/admin/organizers" variant="secondary">Organizers</Button>}
-          {!superAdmin && <Button href="/admin/staff" variant="secondary">Gate staff</Button>}
-          {!superAdmin && <Button href="/organizer" variant="ghost">Public profile</Button>}
-          <Button href="/admin/checkin" variant="secondary"><TicketIcon /> Check in tickets</Button>
+          {superAdmin && (
+            <Button href="/admin/organizers" variant="secondary">
+              Organizer requests{requests > 0 && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs text-white tabular">{requests}</span>}
+            </Button>
+          )}
+          {!superAdmin && !readOnly && <Button href="/admin/staff" variant="secondary">Gate staff</Button>}
+          {!superAdmin && <Button href="/organizer" variant="ghost">{readOnly ? "Application status" : "Public profile"}</Button>}
+          {!readOnly && <Button href="/admin/checkin" variant="secondary"><TicketIcon /> Check in tickets</Button>}
         </div>
       </div>
+
+      {readOnly && (
+        <div className="mt-6">
+          <Alert tone="warning">
+            {status === "PENDING" && <><span className="font-medium">Your organizer account is waiting for approval.</span> You can look around, but creating events, adding staff and check-in unlock once we approve you. We&apos;ll email you.</>}
+            {status === "REJECTED" && <><span className="font-medium">Your application needs changes.</span> <Link className="underline" href="/organizer">See the note and resubmit</Link>.</>}
+            {status === "SUSPENDED" && <><span className="font-medium">Your organizer account is suspended.</span> Your dashboard is read-only. Contact Seatlock support.</>}
+          </Alert>
+        </div>
+      )}
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_380px]">
         <section aria-labelledby="list-h" className="min-w-0">
@@ -148,7 +168,7 @@ export default function AdminPage() {
                     {sales.bookings} booking{sales.bookings === 1 ? "" : "s"} · {inr(sales.revenueCents)} · {sales.checkedIn} checked in
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
+                {!readOnly && <div className="flex items-center gap-1">
                   <label className={buttonClass("secondary", "sm", `cursor-pointer ${uploading === ev.id ? "pointer-events-none opacity-50" : ""}`)}>
                     <UploadIcon /> {uploading === ev.id ? "Uploading…" : ev.imageUrl ? "Replace" : "Add cover"}
                     <input type="file" accept={ACCEPT} className="sr-only" aria-label={`Upload cover for ${ev.title}`}
@@ -160,7 +180,7 @@ export default function AdminPage() {
                     </Button>
                   )}
                   <Button variant="ghost" size="sm" className="text-danger hover:text-danger" onClick={() => setDeleting(ev)}>Cancel event</Button>
-                </div>
+                </div>}
               </li>
             ))}
           </ul>
@@ -169,6 +189,7 @@ export default function AdminPage() {
         <section aria-labelledby="create-h" className="rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-[var(--card-shadow)] lg:self-start">
           <h2 id="create-h" className="font-display text-xl font-semibold">New event</h2>
           <form onSubmit={create} className="mt-5 space-y-4">
+            <fieldset disabled={readOnly} className="space-y-4 disabled:opacity-60">
             {error && <Alert>{error}</Alert>}
             <Field label="Title" required maxLength={120} value={form.title} onChange={set("title")} />
             <Field label="Venue" required maxLength={120} value={form.venue} onChange={set("venue")} hint="Place, City (the city powers search)" />
@@ -193,7 +214,8 @@ export default function AdminPage() {
               </div>
             </fieldset>
             <TextareaField label="Description" maxLength={1000} value={form.description} onChange={set("description")} hint="Shown on the event page." />
-            <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creating…" : "Create event"}</Button>
+            <Button type="submit" className="w-full" disabled={busy || readOnly}>{busy ? "Creating…" : readOnly ? "Available once approved" : "Create event"}</Button>
+            </fieldset>
           </form>
         </section>
       </div>

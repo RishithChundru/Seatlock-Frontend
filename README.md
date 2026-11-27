@@ -12,7 +12,7 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Search and filters:** text, city, date window, max price and category, all kept in the URL (shareable), with "Load more" pagination
 - **Seat tiers:** VIP and Premium rows are outlined on the map, with a price legend and per-tier checkout lines
 - **QR tickets:** each upcoming ticket shows a QR of its code; tickets are split into Upcoming and Past, and show "Checked in"
-- **Organizer onboarding:** "Host events" opens a 3-step application (organisation, public contact details, review with a live preview of the "Hosted by" card). Status page shows under review, changes requested (with the note), approved or suspended
+- **Organizer sign-up, separate from customers:** `/organizer/signup` (linked in the footer and on customer sign-up) is a 4-step form: account, organisation, public contact details (Indian mobile with a +91 picker), review with a live preview of the "Hosted by" card. Until approved the organizer's dashboard is read-only; the status page shows pending, changes requested (with the note), approved or suspended
 - **Dashboards by role:** the super admin sees every event and an **Organizers** review queue (approve, request changes, suspend, reinstate); organizers see only their events with bookings, revenue and check-ins, plus **Gate staff**; staff see only the scanner
 - **"Hosted by"** card on every organizer's event page
 - **Gate check-in** (organizers, their staff, super admin): type the code, or scan the QR with the camera where the browser supports `BarcodeDetector`. Shows green Admit, amber "Already used at…" or red refusal
@@ -77,7 +77,7 @@ npm run dev
 Open http://localhost:3000.
 - **Customers:** click **Sign in → Create an account**, then pick seats on any event.
 - **Super admin:** sign in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you configured in the backend's `.env`. A **Dashboard** link appears in the nav (all events, plus **Organizers** to review applications).
-- **Organizer:** sign up with any other account, open **Host events** and apply; approve it as the super admin, and that account gets its own dashboard.
+- **Organizer:** open **Host events on Seatlock** in the footer (`/organizer/signup`) and create an organizer account; approve it as the super admin (Dashboard → Organizer requests) and its dashboard unlocks.
 
 ### Scripts
 
@@ -116,7 +116,9 @@ Type: Fraunces (display), Geist (UI), Geist Mono (seat labels, ticket codes).
 | `src/app/bookings/page.tsx` | Tickets |
 | `src/app/admin/page.tsx` | Create events (with tiers), manage covers, delete events (admins only) |
 | `src/app/admin/checkin/page.tsx` | Gate check-in by code or QR scan |
-| `src/app/organizer/page.tsx` | Organizer application wizard and status |
+| `src/app/organizer/signup/page.tsx` | Organizer sign-up (public) |
+| `src/app/organizer/page.tsx` | Organizer application status and profile |
+| `src/components/OrganizerWizard.tsx` | Sign-up / edit wizard |
 | `src/app/admin/organizers/page.tsx` | Super admin: review and manage organizers |
 | `src/app/admin/staff/page.tsx` | Organizer: gate staff |
 | `src/components/HostCard.tsx` | "Hosted by" organizer profile |
