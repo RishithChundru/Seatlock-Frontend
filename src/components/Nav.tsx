@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut as endSession, useSession } from "@/lib/api";
+import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import Button from "./ui/Button";
 
@@ -43,8 +44,8 @@ export default function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
       <nav aria-label="Main" className="mx-auto flex h-14 max-w-6xl items-center gap-7 px-4 sm:h-16 sm:px-6">
-        <Link href="/" className="mr-3 font-display text-xl font-semibold tracking-tight">
-          Seat<span className="text-accent">lock</span>
+        <Link href="/" className="mr-3 text-xl" aria-label="Seatlock home">
+          <Logo size={28} />
         </Link>
         <div className="hidden items-center gap-7 sm:flex">{links}</div>
         <div className="ml-auto flex items-center gap-1 sm:gap-2">

@@ -127,7 +127,7 @@ export default function AdminPage() {
         <div className="flex flex-wrap gap-2">
           {superAdmin && (
             <Button href="/admin/organizers" variant="secondary">
-              Organizer requests{requests > 0 && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs text-white tabular">{requests}</span>}
+              Organizer requests{requests > 0 && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-on-accent tabular">{requests}</span>}
             </Button>
           )}
           {role === "ORGANIZER" && !readOnly && <Button href="/admin/staff" variant="secondary">Gate staff</Button>}

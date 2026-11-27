@@ -5,50 +5,65 @@
  * 2. Semantic   what a value is FOR (bg, text, accent, warning...). Re-pointed per theme.
  * 3. Component  per-component decisions (seat states, buttons, cards), built only from semantic tokens.
  *
+ * Palette: ice-blue canvas, white surfaces, charcoal text, one coral accent (60 / 30 / 10).
+ * Coral (#FF6F61) is a fill colour: text on it is charcoal (5.9:1). White on coral is only 2.7:1,
+ * and coral text on ice is 2.5:1, so coral used AS text is the deeper coral-700 (4.8:1+).
+ *
  * Tailwind utilities are generated from the semantic layer in globals.css (@theme inline),
  * so `bg-surface`, `text-muted`, `border-line` etc. follow the active theme automatically.
  */
 
 /* ---------- 1. Primitive ---------- */
 :root {
-  /* Sand: warm neutral, reads like ticket paper */
-  --sand-0: #ffffff;
-  --sand-25: #fcfbf8;
-  --sand-50: #f7f5f0;
-  --sand-100: #efece4;
-  --sand-200: #e2ded3;
-  --sand-300: #cbc5b7;
-  --sand-400: #a39d8f;
-  --sand-500: #7c7769;
-  --sand-600: #5e5a4f;
-  --sand-700: #45423a;
-  --sand-800: #2d2b26;
-  --sand-850: #24231f;
-  --sand-900: #1c1b18;
-  --sand-925: #171613;
-  --sand-950: #12110f;
+  /* Ice: the airy canvas */
+  --ice-50: #f2fbfd;
+  --ice-100: #e0f7fa;
+  --ice-200: #baebf2;
+  --ice-300: #80deea;
 
-  /* Vermilion: the box-office stamp, our single accent */
-  --vermilion-50: #fdf1ee;
-  --vermilion-100: #fbddd5;
-  --vermilion-300: #f2967f;
-  --vermilion-400: #ec6f52;
-  --vermilion-500: #e0492a;
-  --vermilion-600: #c23a1f;
-  --vermilion-700: #9c2f1a;
+  /* Coral: the single accent (CTAs, your seat, urgency) */
+  --coral-50: #fff6f5;
+  --coral-100: #fff0ee;
+  --coral-400: #ff8a7e;
+  --coral-500: #ff6f61;
+  --coral-600: #e85a4d;
+  --coral-700: #c23a2e;
 
-  --amber-100: #fbefd0;
-  --amber-300: #f2c46b;
-  --amber-500: #d99a1e;
-  --amber-700: #8a5e0b;
+  /* Cool neutrals, charcoal at the dark end */
+  --white: #ffffff;
+  --gray-25: #f8fafc;
+  --gray-50: #f4f7f9;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-500: #64748b;
+  --gray-600: #5a6577;
+  --gray-700: #334155;
+  --charcoal: #212121;
+  --black: #111111;
 
-  --green-100: #ddf2e3;
-  --green-300: #7fd3a0;
-  --green-700: #1f6b3d;
+  /* Dark theme neutrals (ice-tinted charcoal) */
+  --night-950: #0b1113;
+  --night-925: #0f171a;
+  --night-900: #141e21;
+  --night-800: #22313a;
+  --night-700: #33444d;
+  --night-400: #7f8f99;
+  --night-300: #a3b3bd;
+  --night-50: #e6f4f6;
 
-  --crimson-100: #f9dde0;
-  --crimson-300: #f08a95;
-  --crimson-700: #a3202f;
+  --amber-100: #fef3c7;
+  --amber-300: #fcd34d;
+  --amber-500: #f59e0b;
+  --amber-700: #92400e;
+
+  --green-100: #d1fae5;
+  --green-300: #6ee7b7;
+  --green-700: #047857;
+
+  --crimson-100: #fee2e2;
+  --crimson-300: #fca5a5;
+  --crimson-700: #b91c1c;
 
   --radius-xs: 4px;
   --radius-sm: 6px;
@@ -65,20 +80,23 @@
 /* ---------- 2. Semantic: light (default) ---------- */
 :root {
   color-scheme: light;
-  --sl-bg: var(--sand-50);
-  --sl-surface: var(--sand-0);
-  --sl-surface-sunken: var(--sand-100);
-  --sl-text: var(--sand-900);
-  --sl-text-muted: var(--sand-600);
-  --sl-text-subtle: var(--sand-500);
-  --sl-border: var(--sand-200);
-  --sl-border-strong: var(--sand-300);
+  --sl-bg: var(--ice-100);
+  --sl-surface: var(--white);
+  --sl-surface-sunken: var(--gray-50);
+  --sl-text: var(--charcoal);
+  --sl-text-muted: var(--gray-600);
+  --sl-text-subtle: var(--gray-500);
+  --sl-border: var(--gray-200);
+  --sl-border-strong: var(--gray-300);
 
-  --sl-accent: var(--vermilion-600);
-  --sl-accent-hover: var(--vermilion-700);
-  --sl-on-accent: var(--sand-0);
-  --sl-accent-subtle: var(--vermilion-50);
-  --sl-accent-text: var(--vermilion-700);
+  --sl-accent: var(--coral-500);
+  --sl-accent-hover: var(--coral-600);
+  --sl-on-accent: var(--charcoal);
+  --sl-accent-subtle: var(--coral-100);
+  --sl-accent-text: var(--coral-700);
+
+  --sl-seat-open: var(--ice-50);
+  --sl-seat-open-border: var(--ice-300);
 
   --sl-success: var(--green-700);
   --sl-success-subtle: var(--green-100);
@@ -88,38 +106,40 @@
   --sl-danger: var(--crimson-700);
   --sl-danger-subtle: var(--crimson-100);
 
-  --sl-focus: var(--vermilion-500);
-  --sl-overlay: rgb(18 17 15 / 0.55);
-  --sl-shadow-sm: 0 1px 2px rgb(28 27 24 / 0.06);
-  --sl-shadow-md: 0 1px 2px rgb(28 27 24 / 0.05), 0 8px 24px -12px rgb(28 27 24 / 0.18);
-  --sl-shadow-lg: 0 24px 64px -24px rgb(28 27 24 / 0.35);
+  --sl-focus: var(--coral-600);
+  --sl-overlay: rgb(17 17 17 / 0.5);
+  --sl-shadow-sm: 0 2px 8px rgb(33 33 33 / 0.04);
+  --sl-shadow-md: 0 8px 24px rgb(33 33 33 / 0.06);
+  --sl-shadow-lg: 0 16px 40px rgb(15 23 42 / 0.08);
 }
 
 /* ---------- 2. Semantic: dark ---------- */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --sl-bg: var(--sand-950);
-    --sl-surface: var(--sand-900);
-    --sl-surface-sunken: var(--sand-925);
-    --sl-text: var(--sand-50);
-    --sl-text-muted: var(--sand-300);
-    --sl-text-subtle: var(--sand-400);
-    --sl-border: var(--sand-800);
-    --sl-border-strong: var(--sand-700);
-    --sl-accent: var(--vermilion-400);
-    --sl-accent-hover: var(--vermilion-300);
-    --sl-on-accent: var(--sand-950);
-    --sl-accent-subtle: rgb(236 111 82 / 0.12);
-    --sl-accent-text: var(--vermilion-300);
+    --sl-bg: var(--night-950);
+    --sl-surface: var(--night-900);
+    --sl-surface-sunken: var(--night-925);
+    --sl-text: var(--night-50);
+    --sl-text-muted: var(--night-300);
+    --sl-text-subtle: var(--night-400);
+    --sl-border: var(--night-800);
+    --sl-border-strong: var(--night-700);
+    --sl-accent: var(--coral-500);
+    --sl-accent-hover: var(--coral-400);
+    --sl-on-accent: var(--charcoal);
+    --sl-accent-subtle: rgb(255 111 97 / 0.14);
+    --sl-accent-text: var(--coral-400);
+    --sl-seat-open: var(--night-925);
+    --sl-seat-open-border: var(--night-700);
     --sl-success: var(--green-300);
-    --sl-success-subtle: rgb(127 211 160 / 0.12);
+    --sl-success-subtle: rgb(110 231 183 / 0.12);
     --sl-warning: var(--amber-300);
     --sl-warning-mark: var(--amber-300);
-    --sl-warning-subtle: rgb(242 196 107 / 0.12);
+    --sl-warning-subtle: rgb(252 211 77 / 0.12);
     --sl-danger: var(--crimson-300);
-    --sl-danger-subtle: rgb(240 138 149 / 0.12);
-    --sl-focus: var(--vermilion-400);
+    --sl-danger-subtle: rgb(252 165 165 / 0.12);
+    --sl-focus: var(--coral-400);
     --sl-overlay: rgb(0 0 0 / 0.65);
     --sl-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
     --sl-shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
@@ -128,27 +148,29 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --sl-bg: var(--sand-950);
-  --sl-surface: var(--sand-900);
-  --sl-surface-sunken: var(--sand-925);
-  --sl-text: var(--sand-50);
-  --sl-text-muted: var(--sand-300);
-  --sl-text-subtle: var(--sand-400);
-  --sl-border: var(--sand-800);
-  --sl-border-strong: var(--sand-700);
-  --sl-accent: var(--vermilion-400);
-  --sl-accent-hover: var(--vermilion-300);
-  --sl-on-accent: var(--sand-950);
-  --sl-accent-subtle: rgb(236 111 82 / 0.12);
-  --sl-accent-text: var(--vermilion-300);
+  --sl-bg: var(--night-950);
+  --sl-surface: var(--night-900);
+  --sl-surface-sunken: var(--night-925);
+  --sl-text: var(--night-50);
+  --sl-text-muted: var(--night-300);
+  --sl-text-subtle: var(--night-400);
+  --sl-border: var(--night-800);
+  --sl-border-strong: var(--night-700);
+  --sl-accent: var(--coral-500);
+  --sl-accent-hover: var(--coral-400);
+  --sl-on-accent: var(--charcoal);
+  --sl-accent-subtle: rgb(255 111 97 / 0.14);
+  --sl-accent-text: var(--coral-400);
+  --sl-seat-open: var(--night-925);
+  --sl-seat-open-border: var(--night-700);
   --sl-success: var(--green-300);
-  --sl-success-subtle: rgb(127 211 160 / 0.12);
+  --sl-success-subtle: rgb(110 231 183 / 0.12);
   --sl-warning: var(--amber-300);
   --sl-warning-mark: var(--amber-300);
-  --sl-warning-subtle: rgb(242 196 107 / 0.12);
+  --sl-warning-subtle: rgb(252 211 77 / 0.12);
   --sl-danger: var(--crimson-300);
-  --sl-danger-subtle: rgb(240 138 149 / 0.12);
-  --sl-focus: var(--vermilion-400);
+  --sl-danger-subtle: rgb(252 165 165 / 0.12);
+  --sl-focus: var(--coral-400);
   --sl-overlay: rgb(0 0 0 / 0.65);
   --sl-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
   --sl-shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
@@ -167,7 +189,7 @@
   --card-radius: var(--radius-lg);
   --card-bg: var(--sl-surface);
   --card-border: var(--sl-border);
-  --card-shadow: var(--sl-shadow-sm);
+  --card-shadow: var(--sl-shadow-md);
 
   --input-radius: var(--radius-md);
   --input-bg: var(--sl-surface);
@@ -176,15 +198,15 @@
   --seat-size: 28px;
   --seat-gap: 6px;
   --seat-radius: 7px 7px 4px 4px;
-  --seat-available-bg: var(--sl-surface);
-  --seat-available-border: var(--sl-border-strong);
+  --seat-available-bg: var(--sl-seat-open);
+  --seat-available-border: var(--sl-seat-open-border);
   --seat-available-fg: var(--sl-text-muted);
   --seat-hover-border: var(--sl-text);
   --seat-mine-bg: var(--sl-accent);
   --seat-mine-fg: var(--sl-on-accent);
   --seat-held-bg: var(--sl-warning-subtle);
   --seat-held-stripe: var(--sl-warning-mark);
-  --seat-booked-bg: var(--sl-border);
+  --seat-booked-bg: var(--sl-border-strong);
   --seat-vip-border: var(--amber-500);
   --seat-premium-border: var(--sl-text-muted);
   --seat-booked-fg: var(--sl-text-subtle);
