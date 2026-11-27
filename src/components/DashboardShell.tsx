@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { ComponentType, ReactNode, Suspense, SVGProps, useEffect, useState } from "react";
 import { api, Organizer } from "@/lib/api";
 import { useDashboardRole } from "@/lib/dashboard";
-import { initialsOf } from "./HostCard";
 import Logo from "./Logo";
 import ProfileMenu from "./ProfileMenu";
 import SiteFrame from "./SiteFrame";
@@ -36,24 +35,18 @@ function Sidebar({ children }: { children: ReactNode }) {
   const path = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState(false);
-  const [org, setOrg] = useState<Organizer | null>(null);
   const [pending, setPending] = useState(0);
 
-  useEffect(() => {
-    if (d.organizer) api<Organizer | undefined>("/api/organizer/me").then((o) => setOrg(o ?? null)).catch(() => {});
-  }, [d.organizer]);
   // Re-count on navigation so the badge drops after a review.
   useEffect(() => {
     if (d.superAdmin) api<Organizer[]>("/api/admin/organizers?status=PENDING").then((l) => setPending(l.length)).catch(() => {});
   }, [d.superAdmin, path]);
 
-  const roleLabel = d.superAdmin ? "Super admin" : d.staff ? "Gate staff" : d.pendingOrganizer ? "Organizer · in review" : "Organizer";
-  const workspace = d.organizer ? org?.name ?? "Your organization" : d.superAdmin ? "Seatlock HQ" : "Gate team";
-
   const groups: Group[] = [
     { title: "General", items: [
       { href: "/admin", label: "Overview", icon: GridIcon },
       { href: "/admin/events", label: d.superAdmin ? "All events" : "Events", icon: ListIcon },
+      ...(d.canCreate ? [{ href: "/admin/events/new", label: "Create event", icon: PlusIcon }] : []),
       { href: "/", label: "Live site", icon: GlobeIcon },
     ] },
     { title: "Operations", items: [
@@ -65,7 +58,7 @@ function Sidebar({ children }: { children: ReactNode }) {
       ...(d.organizer ? [{ href: "/organizer", label: d.pendingOrganizer ? "Application" : "Public profile", icon: StoreIcon }] : []),
     ] },
   ].filter((g) => g.items.length > 0);
-  const all = [...groups.flatMap((g) => g.items), { href: "/admin/events/new", label: "Create event", icon: PlusIcon }];
+  const all = groups.flatMap((g) => g.items);
   // The most specific match wins; "/" (the live site) also owns /events/*.
   const active = all.filter((i) => path === i.href || (i.href === "/" ? path.startsWith("/events/") : path.startsWith(i.href + "/")))
     .sort((a, b) => b.href.length - a.href.length)[0];
@@ -74,7 +67,7 @@ function Sidebar({ children }: { children: ReactNode }) {
     const on = i.href === active?.href;
     return (
       <Link key={i.href} href={i.href} aria-current={on ? "page" : undefined} title={compact ? i.label : undefined} onClick={() => setDrawer(false)}
-        className={`relative flex items-center gap-3 rounded-[var(--radius-md)] py-2 text-sm transition-colors ${compact ? "justify-center px-0" : "px-3"} ${
+        className={`relative flex h-10 items-center gap-3 rounded-[var(--radius-md)] text-sm transition-colors ${compact ? "justify-center px-0" : "px-3"} ${
           on ? "bg-[var(--sidebar-active-bg)] font-medium text-[var(--sidebar-active-fg)]" : "text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-fg)]"}`}>
         {on && <span aria-hidden className="absolute -left-3 top-1.5 bottom-1.5 w-1 rounded-r-full bg-[var(--marigold-400)]" />}
         <i.icon width={18} height={18} className="shrink-0" />
@@ -90,42 +83,30 @@ function Sidebar({ children }: { children: ReactNode }) {
 
   const sidebar = (compact: boolean, inDrawer: boolean) => (
     <div className="flex h-full flex-col overflow-y-auto bg-[var(--sidebar-bg)] p-3 text-[var(--sidebar-fg)]">
-      <div className={`flex items-center gap-2 px-1 pb-4 pt-1 ${compact ? "flex-col" : "justify-between"}`}>
-        <Link href="/admin" aria-label="Dashboard home" onClick={() => setDrawer(false)}><Logo size={30} tone="onDark" showText={!compact} className="text-lg" /></Link>
-        <button type="button" onClick={() => (inDrawer ? setDrawer(false) : setCollapsed(!compact))}
-          aria-label={inDrawer ? "Close menu" : compact ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={inDrawer ? undefined : !compact}
-          className="grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-fg)]">
-          {inDrawer ? <XIcon width={18} height={18} /> : <SidebarIcon width={18} height={18} />}
-        </button>
-      </div>
-
-      {/* Whose workspace this is */}
-      <div className={`flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--sidebar-line)] p-2 ${compact ? "justify-center" : ""}`}>
-        {org?.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- small cached logo
-          <img src={org.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-[var(--radius-sm)] bg-white object-cover" />
+      {/* Top: logo. Collapsed, hovering the logo turns it into the expand button. */}
+      <div className="flex h-12 items-center justify-between gap-2 px-1 pb-3">
+        {compact ? (
+          <button type="button" onClick={() => setCollapsed(false)} aria-label="Expand sidebar" aria-expanded={false} title="Expand sidebar"
+            className="group relative mx-auto grid h-10 w-10 place-items-center rounded-[var(--radius-md)] hover:bg-[var(--sidebar-hover)]">
+            <span className="transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0"><Logo size={30} tone="onDark" showText={false} /></span>
+            <SidebarIcon width={20} height={20} className="absolute text-[var(--sidebar-fg)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+          </button>
         ) : (
-          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-[var(--sidebar-active-bg)] text-xs font-bold text-[var(--marigold-400)]">{initialsOf(workspace)}</span>
-        )}
-        {!compact && (
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{workspace}</p>
-            <p className="truncate text-xs text-[var(--sidebar-muted)]">{roleLabel}</p>
-          </div>
+          <>
+            <Link href="/admin" aria-label="Dashboard home" onClick={() => setDrawer(false)}><Logo size={30} tone="onDark" className="text-lg" /></Link>
+            <button type="button" onClick={() => (inDrawer ? setDrawer(false) : setCollapsed(true))}
+              aria-label={inDrawer ? "Close menu" : "Collapse sidebar"} aria-expanded={inDrawer ? undefined : true} title={inDrawer ? undefined : "Collapse sidebar"}
+              className="grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-fg)]">
+              {inDrawer ? <XIcon width={18} height={18} /> : <SidebarIcon width={18} height={18} />}
+            </button>
+          </>
         )}
       </div>
 
-      {d.canCreate && (
-        <Link href="/admin/events/new" onClick={() => setDrawer(false)} title={compact ? "Create event" : undefined}
-          className={`mt-3 flex h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--marigold-400)] text-sm font-semibold text-[#111827] transition hover:brightness-105 ${path === "/admin/events/new" ? "ring-2 ring-white/40" : ""}`}>
-          <PlusIcon width={18} height={18} />{!compact && "Create event"}
-        </Link>
-      )}
-
-      <nav aria-label="Dashboard" className="mt-4 flex flex-col gap-4">
+      <nav aria-label="Dashboard" className="mt-2 flex flex-col gap-4">
         {groups.map((g) => (
           <div key={g.title}>
-            {compact ? <div className="mx-2 mb-2 border-t border-[var(--sidebar-line)]" /> :
+            {compact ? <div className="mx-3 mb-2 border-t border-[var(--sidebar-line)]" /> :
               <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--sidebar-muted)]/80">{g.title}</p>}
             <div className="flex flex-col gap-0.5">{g.items.map((i) => link(i, compact))}</div>
           </div>
@@ -140,7 +121,7 @@ function Sidebar({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-1">
-      <aside aria-label="Dashboard sidebar" className={`sticky top-0 hidden h-dvh shrink-0 transition-[width] duration-200 lg:block ${collapsed ? "w-[76px]" : "w-64"}`}>
+      <aside aria-label="Dashboard sidebar" className={`sticky top-0 hidden h-dvh shrink-0 transition-[width] duration-200 lg:block ${collapsed ? "w-[72px]" : "w-64"}`}>
         {sidebar(collapsed, false)}
       </aside>
 
@@ -157,9 +138,7 @@ function Sidebar({ children }: { children: ReactNode }) {
             className="grid h-9 w-9 place-items-center rounded-[var(--radius-sm)] text-muted hover:bg-sunken hover:text-fg lg:hidden">
             <MenuIcon width={20} height={20} />
           </button>
-          <p className="truncate text-sm text-subtle">
-            <span className="hidden sm:inline">{workspace} / </span><span className="font-medium text-fg">{active?.label ?? "Dashboard"}</span>
-          </p>
+          <h2 className="truncate font-display text-base font-semibold text-fg">{active?.label ?? "Dashboard"}</h2>
           <div className="ml-auto"><ThemeToggle /></div>
         </header>
         <main id="main" className="w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>

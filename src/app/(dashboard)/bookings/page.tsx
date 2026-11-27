@@ -6,8 +6,15 @@ import { api, Booking, inr, useSession, WaitlistItem, when } from "@/lib/api";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { Alert, Skeleton, Toast } from "@/components/ui/Feedback";
-import { CalendarIcon, ClockIcon, PinIcon, TicketIcon } from "@/components/ui/Icons";
+import { CalendarIcon, ClockIcon, PinIcon, SearchIcon, TicketIcon } from "@/components/ui/Icons";
 import TicketQr from "@/components/TicketQr";
+
+type Kind = "upcoming" | "checked-in" | "past" | "cancelled" | "event-cancelled";
+const FILTERS: [Kind | "all", string][] = [
+  ["all", "All"], ["upcoming", "Upcoming"], ["checked-in", "Checked in"], ["past", "Past"], ["cancelled", "Cancelled"], ["event-cancelled", "Event cancelled"],
+];
+const kindOf = (b: Booking, now: number): Kind =>
+  b.eventCancelled ? "event-cancelled" : b.status === "CANCELLED" ? "cancelled" : b.checkedInAt ? "checked-in" : Date.parse(b.startsAt) > now ? "upcoming" : "past";
 
 export default function BookingsPage() {
   const session = useSession();
@@ -19,6 +26,8 @@ export default function BookingsPage() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(0); // stamped when data arrives; Date.now() in render breaks prerendering
   const dialog = useRef<HTMLDialogElement>(null);
+  const [kind, setKind] = useState<Kind | "all">("all");
+  const [q, setQ] = useState("");
   const clearToast = useCallback(() => setToast(null), []);
 
   const pending = bookings?.some((b) => b.status === "CONFIRMED" && !b.ticketCode) ?? false;
@@ -98,10 +107,12 @@ export default function BookingsPage() {
     }
   };
 
-  // Upcoming = confirmed and not started yet; everything else (past or cancelled) goes below.
-  const upcoming = (bookings ?? []).filter((b) => b.status === "CONFIRMED" && Date.parse(b.startsAt) > now)
-    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-  const past = (bookings ?? []).filter((b) => !upcoming.includes(b));
+  // Newest booking first; filter by what happened to it, search by event, venue, seat or code.
+  const all = [...(bookings ?? [])].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const counts = all.reduce<Record<string, number>>((c, b) => { const k = kindOf(b, now); c[k] = (c[k] ?? 0) + 1; return c; }, { all: all.length });
+  const needle = q.trim().toLowerCase();
+  const shown = all.filter((b) => (kind === "all" || kindOf(b, now) === kind)
+    && (!needle || [b.eventTitle, b.venue, b.ticketCode ?? "", ...b.seats].join(" ").toLowerCase().includes(needle)));
 
   if (!session) {
     return (
@@ -156,13 +167,36 @@ export default function BookingsPage() {
             <Button href="/" variant="secondary" className="mt-4">Browse events</Button>
           </div>
         )}
-        {upcoming.length > 0 && <h2 className="pt-2 font-display text-xl font-semibold">Upcoming</h2>}
-        {upcoming.map((b) => (
-          <TicketCard key={b.id} b={b} upcoming now={now} onShare={() => share(b)}
-            onCancel={Date.parse(b.cancellableUntil) > now ? () => setCancelling(b) : undefined} />
-        ))}
-        {past.length > 0 && <h2 className="pt-6 font-display text-xl font-semibold">Past and cancelled</h2>}
-        {past.map((b) => <TicketCard key={b.id} b={b} upcoming={false} now={now} />)}
+        {all.length > 0 && (
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <label className="relative lg:w-80">
+              <span className="sr-only">Search tickets</span>
+              <SearchIcon width={18} height={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-subtle" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search event, venue, seat or code"
+                className="h-11 w-full rounded-full border border-line bg-surface pl-10 pr-4 text-sm outline-none transition focus-visible:border-[var(--sl-focus)] focus-visible:shadow-[0_0_0_4px_var(--sl-accent-subtle)]" />
+            </label>
+            <div role="group" aria-label="Filter tickets" className="-mx-1 flex gap-2 overflow-x-auto px-1 py-1">
+              {FILTERS.map(([k, label]) => (
+                <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}
+                  className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${kind === k ? "bg-[var(--sl-action)] text-[var(--sl-on-action)]" : "bg-surface text-muted ring-1 ring-inset ring-[var(--sl-border)] hover:text-fg"}`}>
+                  {label}<span className={`tabular text-xs ${kind === k ? "opacity-80" : "text-subtle"}`}>{counts[k] ?? 0}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {all.length > 0 && shown.length === 0 && (
+          <div className="rounded-[var(--card-radius)] border border-dashed border-line-strong px-6 py-12 text-center">
+            <p className="text-muted">No tickets match.</p>
+            <Button variant="secondary" size="sm" className="mt-3" onClick={() => { setQ(""); setKind("all"); }}>Clear filters</Button>
+          </div>
+        )}
+        {shown.map((b) => {
+          const upcoming = kindOf(b, now) === "upcoming";
+          return upcoming
+            ? <TicketCard key={b.id} b={b} upcoming now={now} onShare={() => share(b)} onCancel={Date.parse(b.cancellableUntil) > now ? () => setCancelling(b) : undefined} />
+            : <TicketCard key={b.id} b={b} upcoming={false} now={now} />;
+        })}
       </div>
 
       <Toast message={toast} onDone={clearToast} />
@@ -201,8 +235,10 @@ function TicketCard({ b, upcoming, now, onCancel, onShare }: {
     >
       <div className="flex-1 p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/events/${b.eventId}`} className="font-display text-xl font-semibold tracking-tight hover:text-accent-fg">{b.eventTitle}</Link>
-          {cancelled && <Badge tone="danger">Cancelled</Badge>}
+          {b.eventCancelled
+            ? <span className="font-display text-xl font-semibold tracking-tight">{b.eventTitle}</span> /* the event page is gone */
+            : <Link href={`/events/${b.eventId}`} className="font-display text-xl font-semibold tracking-tight hover:text-accent-fg">{b.eventTitle}</Link>}
+          {cancelled && <Badge tone="danger">{b.eventCancelled ? "Event cancelled" : "Cancelled"}</Badge>}
           {b.checkedInAt && <Badge tone="success">Checked in {when(b.checkedInAt, { hour: "numeric", minute: "2-digit" })}</Badge>}
         </div>
         <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">

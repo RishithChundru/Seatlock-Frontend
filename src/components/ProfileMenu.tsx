@@ -7,7 +7,7 @@ import { initialsOf } from "./HostCard";
 import Button from "./ui/Button";
 import { PasswordField } from "./ui/Field";
 import { Alert } from "./ui/Feedback";
-import { CheckIcon, LogoutIcon, UserIcon, XIcon } from "./ui/Icons";
+import { CheckIcon, ChevronIcon, LogoutIcon, UserIcon, XIcon } from "./ui/Icons";
 
 export const roleName = (u: User) =>
   u.role === "ADMIN" ? "Super admin" : u.role === "STAFF" ? "Gate staff" : u.role === "ORGANIZER" ? "Organizer" : "Customer";
@@ -43,7 +43,9 @@ export default function ProfileMenu({ variant, compact = false }: { variant: "to
   const item = "flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-muted hover:bg-sunken hover:text-fg";
 
   return (
-    <div ref={box} className="relative">
+    // Opens on hover (mouse) and on click (touch, keyboard); the pt bridge keeps it open while the pointer moves down.
+    <div ref={box} className="relative" onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setOpen(true); }}
+      onMouseLeave={() => { if (window.matchMedia("(hover: hover)").matches) setOpen(false); }}>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu"
         className={side
           ? `flex w-full items-center gap-3 rounded-[var(--radius-md)] p-2 text-left transition-colors hover:bg-[var(--sidebar-hover)] ${compact ? "justify-center" : ""} ${open ? "bg-[var(--sidebar-hover)]" : ""}`
@@ -57,25 +59,25 @@ export default function ProfileMenu({ variant, compact = false }: { variant: "to
             <span className="block truncate text-xs text-[var(--sidebar-muted)]">{user.email}</span>
           </span>
         ) : <span className="hidden max-w-32 truncate text-sm font-medium sm:inline">{user.name.split(" ")[0]}</span>}
+        {!compact && <ChevronIcon width={14} height={14} className={`shrink-0 transition-transform ${side ? "text-[var(--sidebar-muted)]" : "hidden text-subtle sm:block"} ${open !== side ? "rotate-180" : ""}`} />}
       </button>
 
       {open && (
-        <div role="menu" className={`absolute z-50 w-64 rounded-[var(--radius-lg)] border border-line bg-surface p-1.5 text-fg shadow-[var(--sl-shadow-lg)] ${
-          side ? `bottom-full mb-2 ${compact ? "left-0" : "left-0 right-0 w-auto"}` : "right-0 mt-2"}`}>
-          <div className="flex items-center gap-3 px-3 py-2.5">
-            <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sunken text-sm font-bold text-accent-fg">{initialsOf(user.name)}</span>
-            <div className="min-w-0">
+        <div className={`absolute z-50 ${side ? "bottom-full left-0 right-0 pb-2" : "right-0 top-full pt-2"} ${side && compact ? "right-auto" : ""}`}>
+          <div role="menu" className={`rounded-[var(--radius-md)] border border-line bg-surface p-1 text-fg shadow-[var(--sl-shadow-lg)] ${side && !compact ? "" : "w-56"}`}>
+            <div className="px-3 pb-2 pt-2.5">
               <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs text-subtle">{user.email}</p>
+              <p className="mt-0.5 text-xs font-medium text-accent-fg">{roleName(user)}</p>
             </div>
+            <div className="my-1 border-t border-line" />
+            <button role="menuitem" type="button" className={item} onClick={() => { setOpen(false); setSettings(true); }}>
+              <UserIcon width={16} height={16} />Account settings
+            </button>
+            <button role="menuitem" type="button" className={item} onClick={() => { setOpen(false); leave(); }}>
+              <LogoutIcon width={16} height={16} />Sign out
+            </button>
           </div>
-          <div className="my-1 border-t border-line" />
-          <button role="menuitem" type="button" className={item} onClick={() => { setOpen(false); setSettings(true); }}>
-            <UserIcon width={16} height={16} />Account settings
-          </button>
-          <button role="menuitem" type="button" className={item} onClick={() => { setOpen(false); leave(); }}>
-            <LogoutIcon width={16} height={16} />Sign out
-          </button>
         </div>
       )}
       {settings && <AccountDialog onClose={() => setSettings(false)} />}

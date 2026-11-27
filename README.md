@@ -116,15 +116,15 @@ Pages live in three route groups, each with its own layout: `(site)` (public pag
 | `src/app/(site)/page.tsx` | Event list: search and filters on top, compact event cards |
 | `src/app/(site)/events/[id]/page.tsx` | Seat map and checkout (read-only for managers) |
 | `src/app/(site)/t/[token]/page.tsx` | Public shared ticket |
-| `src/app/(site)/organizer/signup/page.tsx` | Organizer sign-up (public) |
-| `src/app/(site)/staff/invite/page.tsx` | Create a staff account from an invite (public) |
-| `src/app/(auth)/layout.tsx` | Split screen: brand panel with the isometric arena (`components/AuthArt.tsx`), form on the right |
+| `src/app/(auth)/organizer/signup/page.tsx` | Organizer sign-up (public, split screen like sign-in) |
+| `src/app/(auth)/staff/invite/page.tsx` | Create a staff account from an invite (public) |
+| `src/app/(auth)/layout.tsx` | Split screen: brand panel with the animated isometric arena (`components/AuthArt.tsx`, CSS only, still for reduced motion), form on the right |
 | `src/app/(auth)/login/page.tsx` | Sign in / sign up |
 | `src/components/DashboardShell.tsx` | App chrome for every page: organizers, staff and the super admin get a grouped, collapsible sidebar (mobile drawer) |
 | `src/components/SiteFrame.tsx` | Customers: top bar with tabs and the profile menu, bottom tabs on phones |
 | `src/components/ProfileMenu.tsx` | Profile menu for every role; account settings (profile, change password) open in a modal |
 | `src/app/(dashboard)/me/page.tsx` | Customer overview: stats, spending chart, next ticket, recent bookings |
-| `src/app/(dashboard)/bookings/page.tsx` | Customer tickets |
+| `src/app/(dashboard)/bookings/page.tsx` | Customer tickets: newest first, search, filters (upcoming, checked in, past, cancelled, event cancelled) |
 | `src/app/(dashboard)/admin/page.tsx` | Manager overview: KPIs, weekly sales chart, latest bookings |
 | `src/app/(dashboard)/admin/events/page.tsx` | Events: sales, covers, cancel, search, organizer filter |
 | `src/app/(dashboard)/admin/events/new/page.tsx` | Create event (details, seat map, tiers) |

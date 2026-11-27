@@ -50,7 +50,7 @@ function InviteForm() {
 
   if (session && session.user.role !== "STAFF") {
     return (
-      <div className="mx-auto max-w-md pt-24 text-center">
+      <div className="mx-auto max-w-md text-center">
         <h1 className="font-display text-2xl font-semibold">You&apos;re signed in as {session.user.name}</h1>
         <p className="mt-2 text-muted">Staff invites create a separate account. Sign out first, then open the invite link again.</p>
       </div>
@@ -58,16 +58,16 @@ function InviteForm() {
   }
   if (invalid) {
     return (
-      <div className="mx-auto max-w-md pt-24 text-center">
+      <div className="mx-auto max-w-md text-center">
         <h1 className="font-display text-2xl font-semibold">This invite can&apos;t be used</h1>
         <p className="mt-2 text-muted">{invalid}</p>
       </div>
     );
   }
-  if (!invite) return <div className="mx-auto max-w-sm pt-24"><Skeleton className="h-80" /></div>;
+  if (!invite) return <div className="w-full max-w-sm"><Skeleton className="h-80" /></div>;
 
   return (
-    <div className="mx-auto max-w-sm pt-16">
+    <div className="w-full max-w-sm">
       <p className="eyebrow">Gate staff invite</p>
       <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Join {invite.organizerName}</h1>
       <p className="mt-2 text-muted">Create your staff account to scan tickets at their events. You&apos;ll be able to see their events, read-only.</p>

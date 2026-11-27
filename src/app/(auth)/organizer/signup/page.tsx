@@ -12,7 +12,7 @@ export default function OrganizerSignupPage() {
 
   if (session) {
     return (
-      <div className="mx-auto max-w-md pt-24 text-center">
+      <div className="mx-auto max-w-md text-center">
         <h1 className="font-display text-2xl font-semibold">You&apos;re signed in as {session.user.name}</h1>
         <p className="mt-2 text-muted">
           {session.user.role === "ORGANIZER"
@@ -26,7 +26,7 @@ export default function OrganizerSignupPage() {
   return (
     <>
       <OrganizerWizard signup onSaved={() => router.replace("/organizer")} />
-      <p className="mt-6 text-center text-sm text-muted">
+      <p className="mt-6 w-full max-w-xl text-center text-sm text-muted">
         Already have an organizer account? <Link href="/login?next=/admin" className="font-medium text-accent-fg underline-offset-4 hover:underline">Sign in</Link>
       </p>
     </>

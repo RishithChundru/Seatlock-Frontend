@@ -43,6 +43,7 @@ export type Booking = {
   totalCents: number; createdAt: string; seats: string[]; ticketCode: string | null;
   status: "CONFIRMED" | "CANCELLED"; cancelledAt: string | null; checkedInAt: string | null;
   cancellableUntil: string; // after this, cancelling is closed; sharing is the way out
+  eventCancelled: boolean; // cancelled because the organizer called the event off
 };
 /** booking when done right away (payments off / free); otherwise a Razorpay order to pay. */
 export type CheckoutResponse = {

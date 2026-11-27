@@ -57,13 +57,6 @@ export default function SiteFrame({ children }: { children: ReactNode }) {
 
       <main id="main" className={`mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 sm:pt-8 ${session ? "pb-28 md:pb-16" : ""}`}>{children}</main>
 
-      <footer className="hidden border-t border-line md:block">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-xs text-subtle sm:px-6">
-          <Logo size={20} className="text-sm text-muted" />
-          <Link href="/organizer/signup" className="hover:text-fg">Host events on Seatlock</Link>
-        </div>
-      </footer>
-
       {/* Phones: app-style bottom tabs for signed-in customers */}
       {session && (
         <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
