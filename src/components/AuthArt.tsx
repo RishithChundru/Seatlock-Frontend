@@ -2,6 +2,8 @@
  * Isometric (3D-style) arena for the sign-in panel: a stage and screen, rows of seats, your two marigold seats,
  * and a floating ticket. Pure SVG, drawn back to front; colours are fixed because the panel is always navy.
  */
+import { LogoMark } from "./Logo";
+
 const S = 26;
 const OX = 250, OY = 92;
 type Face = { top: string; left: string; right: string };
@@ -24,6 +26,9 @@ const SCREEN: Face = { top: "#c7d4f2", left: "#e8eefc", right: "#b9c8ec" };
 const OPEN: Face = { top: "#4767c4", left: "#2f4ea6", right: "#253f8c" };
 const MINE: Face = { top: "#fcd34d", left: "#f59e0b", right: "#d97706" };
 const TAKEN: Face = { top: "#64748b", left: "#4b5563", right: "#3d4654" };
+
+// 178 x 84 ticket: 12px corners, an 8px notch halfway down each side (same cut as the logo mark).
+const TICKET = "M12 0H166A12 12 0 0 1 178 12V34A8 8 0 0 0 178 50V72A12 12 0 0 1 166 84H12A12 12 0 0 1 0 72V50A8 8 0 0 0 0 34V12A12 12 0 0 1 12 0Z";
 
 const ROWS = 5, COLS = 8;
 const taken = new Set(["0-1", "0-6", "1-2", "2-6", "2-7", "3-0", "4-3", "4-4"]);
@@ -50,23 +55,18 @@ export default function AuthArt({ className = "" }: { className?: string }) {
       <polygon points={[P(0.2, -0.8, 0.46), P(8.6, -0.8, 0.46), P(8.6, -0.7, 0.46), P(0.2, -0.7, 0.46)].join(" ")} fill="#fbbf24" opacity="0.9" />
       {seats}
 
-      {/* floating ticket */}
+      {/* floating ticket, cut like the logo's ticket: rounded, a notch on each side, a perforated stub */}
       <g transform="translate(318 34) rotate(-9)">
-        <rect x="6" y="10" width="178" height="84" rx="12" fill="#000" opacity="0.25" />
-        <rect width="178" height="84" rx="12" fill="#ffffff" />
-        <rect width="50" height="84" rx="12" fill="#fbbf24" />
-        <rect x="38" width="12" height="84" fill="#fbbf24" />
-        <circle cx="50" cy="0" r="7" fill="#0f1b3d" />
-        <circle cx="50" cy="84" r="7" fill="#0f1b3d" />
-        <line x1="50" y1="10" x2="50" y2="74" stroke="#d97706" strokeWidth="2" strokeDasharray="4 4" />
+        <defs><clipPath id="auth-ticket"><path d={TICKET} /></clipPath></defs>
+        <path d={TICKET} transform="translate(6 10)" fill="#000" opacity="0.25" />
+        <path d={TICKET} fill="#ffffff" />
+        <rect width="50" height="84" fill="#fbbf24" clipPath="url(#auth-ticket)" />
+        <line x1="50" y1="8" x2="50" y2="76" stroke="#1e3a8a" strokeWidth="2.5" strokeDasharray="4 4" />
         <text x="25" y="47" textAnchor="middle" fontSize="15" fontWeight="800" fill="#111827" transform="rotate(-90 25 42)">ADMIT</text>
-        <text x="62" y="28" fontSize="13" fontWeight="800" fill="#111827">NEON NIGHTS</text>
+        <text x="62" y="28" fontSize="14" fontWeight="800" fill="#111827" letterSpacing="0.5">SEATLOCK</text>
         <text x="62" y="46" fontSize="11" fill="#5b6472">Row C · 4, 5</text>
         <text x="62" y="64" fontSize="11" fontWeight="700" fill="#1e3a8a">Sat · 7:30 PM</text>
-        <g transform="translate(140 46)" fill="#111827">
-          {[[0, 0], [8, 0], [16, 0], [0, 8], [16, 8], [0, 16], [8, 16], [16, 16], [8, 8]].map(([qx, qy], i) =>
-            <rect key={i} x={qx} y={qy} width="6" height="6" rx="1" opacity={i === 8 ? 0.35 : 1} />)}
-        </g>
+        <g transform="translate(148 50)"><LogoMark size={24} /></g>
       </g>
       {/* lock badge */}
       <g transform="translate(494 122)">

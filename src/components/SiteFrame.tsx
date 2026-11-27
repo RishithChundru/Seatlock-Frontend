@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ComponentType, ReactNode, SVGProps, useEffect, useRef, useState } from "react";
-import { signOut, useSession } from "@/lib/api";
-import { initialsOf } from "./HostCard";
+import { usePathname } from "next/navigation";
+import { ComponentType, ReactNode, SVGProps } from "react";
+import { useSession } from "@/lib/api";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import Button from "./ui/Button";
-import { GlobeIcon, GridIcon, LogoutIcon, TicketIcon, UserIcon } from "./ui/Icons";
+import ProfileMenu from "./ProfileMenu";
+import { GlobeIcon, GridIcon, TicketIcon } from "./ui/Icons";
 
 type Tab = { href: string; label: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
 const TABS: Tab[] = [
@@ -45,7 +45,7 @@ export default function SiteFrame({ children }: { children: ReactNode }) {
           </nav>
           <div className="ml-auto flex items-center gap-2 md:ml-0">
             <ThemeToggle />
-            {session ? <AccountMenu name={session.user.name} email={session.user.email} /> : (
+            {session ? <ProfileMenu variant="topbar" /> : (
               <>
                 <Link href="/organizer/signup" className="hidden px-2 text-sm text-muted hover:text-fg sm:inline">Host events</Link>
                 <Button href="/login" size="sm">Sign in</Button>
@@ -66,8 +66,8 @@ export default function SiteFrame({ children }: { children: ReactNode }) {
 
       {/* Phones: app-style bottom tabs for signed-in customers */}
       {session && (
-        <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
-          {[...TABS, { href: "/account", label: "Account", icon: UserIcon }].map((t) => {
+        <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
+          {TABS.map((t) => {
             const on = isOn(t.href, path);
             return (
               <Link key={t.href} href={t.href} aria-current={on ? "page" : undefined}
@@ -79,46 +79,5 @@ export default function SiteFrame({ children }: { children: ReactNode }) {
         </nav>
       )}
     </>
-  );
-}
-
-function AccountMenu({ name, email }: { name: string; email: string }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", close); };
-  }, [open]);
-  const leave = async () => { setOpen(false); await signOut(); router.replace("/"); };
-  const item = "flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-sm text-muted hover:bg-sunken hover:text-fg";
-
-  return (
-    <div ref={box} className="relative">
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu"
-        className="flex items-center gap-2 rounded-full p-0.5 pr-0.5 ring-1 ring-[var(--sl-border)] transition hover:ring-[var(--sl-border-strong)] sm:pr-3">
-        <span aria-hidden className="grid h-8 w-8 place-items-center rounded-full bg-[var(--sl-action)] text-xs font-bold text-[var(--sl-on-action)]">{initialsOf(name)}</span>
-        <span className="hidden max-w-32 truncate text-sm font-medium sm:inline">{name.split(" ")[0]}</span>
-      </button>
-      {open && (
-        <div role="menu" className="absolute right-0 mt-2 w-60 rounded-[var(--radius-lg)] border border-line bg-surface p-1.5 shadow-[var(--sl-shadow-md)]">
-          <div className="px-3 py-2">
-            <p className="truncate text-sm font-semibold">{name}</p>
-            <p className="truncate text-xs text-subtle">{email}</p>
-          </div>
-          <div className="my-1 border-t border-line" />
-          <Link role="menuitem" href="/me" className={item} onClick={() => setOpen(false)}><GridIcon width={16} height={16} />Overview</Link>
-          <Link role="menuitem" href="/bookings" className={item} onClick={() => setOpen(false)}><TicketIcon width={16} height={16} />My tickets</Link>
-          <Link role="menuitem" href="/account" className={item} onClick={() => setOpen(false)}><UserIcon width={16} height={16} />Account</Link>
-          <div className="my-1 border-t border-line" />
-          <button role="menuitem" type="button" onClick={leave} className={`${item} w-full`}><LogoutIcon width={16} height={16} />Sign out</button>
-        </div>
-      )}
-    </div>
   );
 }

@@ -121,7 +121,8 @@ Pages live in three route groups, each with its own layout: `(site)` (public pag
 | `src/app/(auth)/layout.tsx` | Split screen: brand panel with the isometric arena (`components/AuthArt.tsx`), form on the right |
 | `src/app/(auth)/login/page.tsx` | Sign in / sign up |
 | `src/components/DashboardShell.tsx` | App chrome for every page: organizers, staff and the super admin get a grouped, collapsible sidebar (mobile drawer) |
-| `src/components/SiteFrame.tsx` | Visitors and customers: top bar with tabs and an account menu, bottom tabs on phones |
+| `src/components/SiteFrame.tsx` | Customers: top bar with tabs and the profile menu, bottom tabs on phones |
+| `src/components/ProfileMenu.tsx` | Profile menu for every role; account settings (profile, change password) open in a modal |
 | `src/app/(dashboard)/me/page.tsx` | Customer overview: stats, spending chart, next ticket, recent bookings |
 | `src/app/(dashboard)/bookings/page.tsx` | Customer tickets |
 | `src/app/(dashboard)/admin/page.tsx` | Manager overview: KPIs, weekly sales chart, latest bookings |
@@ -131,7 +132,7 @@ Pages live in three route groups, each with its own layout: `(site)` (public pag
 | `src/app/(dashboard)/admin/organizers/page.tsx` | Super admin: review and manage organizers |
 | `src/app/(dashboard)/admin/staff/page.tsx` | Organizer: gate staff and invites |
 | `src/app/(dashboard)/organizer/page.tsx` | Organizer application status and profile |
-| `src/app/(dashboard)/account/page.tsx` | Profile and change password |
+| `src/app/(dashboard)/account/page.tsx` | Account settings as a page, for direct links |
 | `src/lib/dashboard.ts` | What each role may see and do in the dashboard |
 | `src/components/DashboardUI.tsx` | Page header, panels, stat cards, status pills, tables |
 | `src/components/Charts.tsx` | Area and bar charts (Recharts), themed with the design tokens |
@@ -141,7 +142,7 @@ Pages live in three route groups, each with its own layout: `(site)` (public pag
 | `src/styles/tokens.css` | Design tokens |
 | `src/components/ui/*` | Component library |
 | `src/lib/api.ts` | API client (cookie auth, refresh-and-retry), session store, formatters |
-| `src/proxy.ts` | Route guard: signed-in pages and per-role dashboard access |
+| `src/proxy.ts` | Route guard: signed out, everything but sign-in, sign-up and shared tickets goes to `/login`; per-role dashboard access |
 | `next.config.ts` | `/api/*` proxy to the backend |
 
 ---

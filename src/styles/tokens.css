@@ -47,6 +47,8 @@
   --midnight-700: #33415f;
   --midnight-400: #7c8aa0;
   --midnight-300: #94a3b8;
+  --midnight-200: #c3ccda;
+  --midnight-100: #e6eaf2;
   --midnight-50: #f1f5f9;
 
   --amber-100: #fef3c7;
@@ -121,9 +123,9 @@
     --sl-bg: var(--midnight-950);
     --sl-surface: var(--midnight-900);
     --sl-surface-sunken: var(--midnight-925);
-    --sl-text: var(--midnight-50);
-    --sl-text-muted: var(--midnight-300);
-    --sl-text-subtle: var(--midnight-400);
+    --sl-text: var(--midnight-100);
+    --sl-text-muted: var(--midnight-200);
+    --sl-text-subtle: var(--midnight-300);
     --sl-border: var(--midnight-800);
     --sl-border-strong: var(--midnight-700);
     --sl-accent: var(--marigold-400);
@@ -155,9 +157,9 @@
   --sl-bg: var(--midnight-950);
   --sl-surface: var(--midnight-900);
   --sl-surface-sunken: var(--midnight-925);
-  --sl-text: var(--midnight-50);
-  --sl-text-muted: var(--midnight-300);
-  --sl-text-subtle: var(--midnight-400);
+  --sl-text: var(--midnight-100);
+  --sl-text-muted: var(--midnight-200);
+  --sl-text-subtle: var(--midnight-300);
   --sl-border: var(--midnight-800);
   --sl-border-strong: var(--midnight-700);
   --sl-accent: var(--marigold-400);

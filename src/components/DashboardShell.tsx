@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ComponentType, ReactNode, Suspense, SVGProps, useEffect, useState } from "react";
-import { api, Organizer, signOut } from "@/lib/api";
+import { api, Organizer } from "@/lib/api";
 import { useDashboardRole } from "@/lib/dashboard";
 import { initialsOf } from "./HostCard";
 import Logo from "./Logo";
+import ProfileMenu from "./ProfileMenu";
 import SiteFrame from "./SiteFrame";
 import ThemeToggle from "./ThemeToggle";
 import {
-  GlobeIcon, GridIcon, InboxIcon, ListIcon, LogoutIcon, MenuIcon, PlusIcon, ScanIcon, SidebarIcon, StoreIcon,
-  UserIcon, UsersIcon, XIcon,
+  GlobeIcon, GridIcon, InboxIcon, ListIcon, MenuIcon, PlusIcon, ScanIcon, SidebarIcon, StoreIcon, UsersIcon, XIcon,
 } from "./ui/Icons";
 
 type Item = { href: string; label: string; icon: ComponentType<SVGProps<SVGSVGElement>>; badge?: number };
@@ -34,7 +34,6 @@ function Chrome({ children }: { children: ReactNode }) {
 function Sidebar({ children }: { children: ReactNode }) {
   const d = useDashboardRole();
   const path = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [org, setOrg] = useState<Organizer | null>(null);
@@ -48,7 +47,6 @@ function Sidebar({ children }: { children: ReactNode }) {
     if (d.superAdmin) api<Organizer[]>("/api/admin/organizers?status=PENDING").then((l) => setPending(l.length)).catch(() => {});
   }, [d.superAdmin, path]);
 
-  const user = d.session!.user;
   const roleLabel = d.superAdmin ? "Super admin" : d.staff ? "Gate staff" : d.pendingOrganizer ? "Organizer · in review" : "Organizer";
   const workspace = d.organizer ? org?.name ?? "Your organization" : d.superAdmin ? "Seatlock HQ" : "Gate team";
 
@@ -65,14 +63,12 @@ function Sidebar({ children }: { children: ReactNode }) {
     ] },
     { title: "Settings", items: [
       ...(d.organizer ? [{ href: "/organizer", label: d.pendingOrganizer ? "Application" : "Public profile", icon: StoreIcon }] : []),
-      { href: "/account", label: "Account", icon: UserIcon },
     ] },
   ].filter((g) => g.items.length > 0);
   const all = [...groups.flatMap((g) => g.items), { href: "/admin/events/new", label: "Create event", icon: PlusIcon }];
   // The most specific match wins; "/" (the live site) also owns /events/*.
   const active = all.filter((i) => path === i.href || (i.href === "/" ? path.startsWith("/events/") : path.startsWith(i.href + "/")))
     .sort((a, b) => b.href.length - a.href.length)[0];
-  const leave = async () => { await signOut(); router.replace("/"); };
 
   const link = (i: Item, compact: boolean) => {
     const on = i.href === active?.href;
@@ -136,20 +132,8 @@ function Sidebar({ children }: { children: ReactNode }) {
         ))}
       </nav>
 
-      <div className="mt-auto pt-4">
-        <div className={`flex items-center gap-3 rounded-[var(--radius-md)] bg-[var(--sidebar-hover)] p-2 ${compact ? "flex-col" : ""}`}>
-          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--marigold-400)] text-sm font-bold text-[#111827]">{initialsOf(user.name)}</span>
-          {!compact && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{user.name}</p>
-              <p className="truncate text-xs text-[var(--sidebar-muted)]">{user.email}</p>
-            </div>
-          )}
-          <button type="button" onClick={leave} aria-label="Sign out" title="Sign out"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-sm)] text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-fg)]">
-            <LogoutIcon width={17} height={17} />
-          </button>
-        </div>
+      <div className="mt-auto border-t border-[var(--sidebar-line)] pt-3">
+        <ProfileMenu variant="sidebar" compact={compact} />
       </div>
     </div>
   );

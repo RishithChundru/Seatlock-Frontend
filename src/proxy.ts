@@ -17,8 +17,9 @@ export async function proxy(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/organizer/signup")) return NextResponse.next(); // public: organizer sign-up
   const refresh = req.cookies.get("sl_refresh")?.value;
   if (!refresh) {
+    // Signed out, the app starts at sign-in (the event list included); deep links come back after.
     const login = new URL("/login", req.url);
-    login.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
+    if (req.nextUrl.pathname !== "/") login.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
     return NextResponse.redirect(login);
   }
   // /admin pages by role; /bookings (tickets) is for customers only.
@@ -51,4 +52,4 @@ export async function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/me/:path*", "/bookings/:path*", "/account/:path*", "/admin/:path*", "/organizer/:path*"] };
+export const config = { matcher: ["/", "/events/:path*", "/me/:path*", "/bookings/:path*", "/account/:path*", "/admin/:path*", "/organizer/:path*"] };

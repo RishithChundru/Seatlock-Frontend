@@ -90,3 +90,6 @@ export const TrendIcon = (p: SVGProps<SVGSVGElement>) => (
 export const SearchIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
 );
+export const ChevronIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="m6 9 6 6 6-6" /></svg>
+);

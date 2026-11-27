@@ -6,9 +6,8 @@ import { Suspense, useEffect, useState } from "react";
 import { api, EventItem, EventPage, inr, when } from "@/lib/api";
 import EventCover from "@/components/EventCover";
 import Button from "@/components/ui/Button";
-import { controlClass } from "@/components/ui/Field";
 import { Alert, Skeleton } from "@/components/ui/Feedback";
-import { PinIcon, SearchIcon } from "@/components/ui/Icons";
+import { ChevronIcon, PinIcon, SearchIcon } from "@/components/ui/Icons";
 
 const PAGE_SIZE = 12;
 const WHEN_OPTIONS = { any: "Any time", week: "Next 7 days", month: "Next 30 days" } as const;
@@ -79,34 +78,39 @@ function HomeView() {
   const items = result?.items ?? [];
   const pill = (on: boolean) =>
     `h-8 shrink-0 rounded-full px-3.5 text-[13px] font-medium transition-colors ${on ? "bg-[var(--sl-action)] text-[var(--sl-on-action)]" : "bg-surface text-muted ring-1 ring-inset ring-[var(--sl-border)] hover:text-fg"}`;
-  const select = `${controlClass} h-10 w-auto min-w-0 shrink-0 bg-surface pr-8 text-sm`;
+  const filter = (id: string, label: string, value: string, onChange: (v: string) => void, options: [string, string][]) => (
+    <label htmlFor={id} className="group relative flex min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-full px-5 py-1.5 transition-colors hover:bg-sunken">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-subtle">{label}</span>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}
+        className="w-full cursor-pointer appearance-none truncate bg-transparent pr-5 text-sm font-medium text-fg outline-none">
+        {options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+      </select>
+      <ChevronIcon className="pointer-events-none absolute bottom-3 right-4 text-subtle" />
+    </label>
+  );
 
   return (
     <div className="pt-2">
-      {/* Search first: one bar, filters beside it */}
+      {/* Search first: one rounded bar, labelled filters inside it */}
       <form role="search" onSubmit={(e) => { e.preventDefault(); setFilter("q", text.trim()); }}
-        className="flex flex-wrap items-center gap-2 rounded-[var(--radius-lg)] border border-line bg-surface p-2 shadow-[var(--sl-shadow-sm)]">
-        <label className="relative min-w-60 flex-[3]">
-          <span className="sr-only">Search events</span>
-          <SearchIcon width={18} height={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
-          <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search concerts, comedy, venues, artists…"
-            className="h-10 w-full rounded-[var(--radius-md)] bg-transparent pl-10 pr-3 text-[15px] outline-none placeholder:text-subtle focus-visible:ring-2 focus-visible:ring-[var(--sl-focus)]" />
+        className="flex flex-col gap-1 rounded-[28px] border border-line bg-surface p-1.5 shadow-[var(--sl-shadow-md)] focus-within:border-line-strong lg:flex-row lg:items-center lg:rounded-full">
+        <label className="flex min-w-0 flex-[1.6] items-center gap-3 rounded-full px-4 py-2.5 transition-colors hover:bg-sunken">
+          <SearchIcon width={20} height={20} className="shrink-0 text-accent-fg" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-subtle">Search</span>
+            <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Concerts, comedy, artists, venues"
+              className="w-full bg-transparent text-sm font-medium outline-none placeholder:font-normal placeholder:text-subtle" />
+          </span>
         </label>
-        <div className="flex min-w-72 flex-[2] flex-wrap gap-2 [&>select]:min-w-28 [&>select]:flex-1">
-          <label className="sr-only" htmlFor="city">City</label>
-          <select id="city" value={city} onChange={(e) => setFilter("city", e.target.value)} className={select}>
-            <option value="">All cities</option>
-            {result?.cities.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <label className="sr-only" htmlFor="when">Date</label>
-          <select id="when" value={whenKey} onChange={(e) => setFilter("when", e.target.value)} className={select}>
-            {Object.entries(WHEN_OPTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-          <label className="sr-only" htmlFor="price">Price</label>
-          <select id="price" value={price} onChange={(e) => setFilter("price", e.target.value)} className={select}>
-            {Object.entries(PRICE_OPTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
+        <div className="flex min-w-0 flex-[2] items-center divide-x divide-[var(--sl-border)] border-t border-line pt-1 lg:border-l lg:border-t-0 lg:pt-0">
+          {filter("city", "Where", city, (v) => setFilter("city", v), [["", "All cities"], ...(result?.cities ?? []).map((c): [string, string] => [c, c])])}
+          {filter("when", "When", whenKey, (v) => setFilter("when", v), Object.entries(WHEN_OPTIONS))}
+          {filter("price", "Budget", price, (v) => setFilter("price", v), Object.entries(PRICE_OPTIONS))}
         </div>
+        <button type="submit" aria-label="Search"
+          className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--sl-action)] px-6 text-sm font-semibold text-[var(--sl-on-action)] transition hover:bg-[var(--sl-action-hover)] lg:w-12 lg:px-0">
+          <SearchIcon width={18} height={18} /><span className="lg:sr-only">Search</span>
+        </button>
       </form>
 
       <div className="mt-5 flex items-center gap-3">
