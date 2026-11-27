@@ -1,9 +1,12 @@
 import type { Host } from "@/lib/api";
 import { PinIcon } from "@/components/ui/Icons";
 
+/** "Rishith Events" -> "RE": the fallback logo when an organizer hasn't uploaded one. */
+export const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
+
 /** "Hosted by" block: the organizer's public profile, as customers see it on an event page. */
 export default function HostCard({ host, className = "" }: { host: Host; className?: string }) {
-  const initials = host.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
+  const initials = initialsOf(host.name);
   return (
     <section aria-labelledby={`host-${host.id}`} className={`rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 ${className}`}>
       <p className="eyebrow">Hosted by</p>

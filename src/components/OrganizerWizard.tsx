@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { api, Organizer, setSession, User } from "@/lib/api";
-import HostCard from "@/components/HostCard";
+import HostCard, { initialsOf } from "@/components/HostCard";
 import Button, { buttonClass } from "@/components/ui/Button";
 import { UploadIcon } from "@/components/ui/Icons";
 import { controlClass, Field, PasswordField, TextareaField } from "@/components/ui/Field";
@@ -171,7 +171,11 @@ export default function OrganizerWizard({ signup = false, initial = null, onSave
                   // eslint-disable-next-line @next/next/no-img-element -- local preview (blob URL) or the current logo
                   <img src={logoPreview} alt="Logo preview" width={64} height={64} className="h-16 w-16 rounded-full border border-line bg-white object-cover" />
                 ) : (
-                  <span aria-hidden className="grid h-16 w-16 place-items-center rounded-full border border-dashed border-line-strong text-xs text-subtle">No logo</span>
+                  // Fallback: the same initials customers see when there's no logo; follows the name as it's typed.
+                  <span aria-hidden className={`grid h-16 w-16 place-items-center rounded-full font-display text-xl font-semibold ${
+                    initialsOf(form.name) ? "bg-accent-subtle text-accent-fg" : "border border-dashed border-line-strong text-xs font-normal text-subtle"}`}>
+                    {initialsOf(form.name) || "Logo"}
+                  </span>
                 )}
                 <div className="flex flex-wrap gap-2">
                   <label className={buttonClass("secondary", "sm", "cursor-pointer")}>
@@ -197,13 +201,18 @@ export default function OrganizerWizard({ signup = false, initial = null, onSave
             <div>
               <label htmlFor="org-phone" className="mb-1.5 block text-sm font-medium text-fg">Contact phone</label>
               <div className="flex gap-2">
-                {/* India only for now; more countries can be added to this list later. */}
-                <select aria-label="Country code" className={`${controlClass} h-11 w-28 shrink-0`} value="+91" onChange={() => undefined}>
-                  <option value="+91">🇮🇳 +91</option>
-                </select>
-                <input id="org-phone" type="tel" inputMode="numeric" autoComplete="tel-national" required maxLength={10}
-                  placeholder="98765 43210" aria-describedby="org-phone-hint" className={`${controlClass} h-11 flex-1 tabular`}
-                  value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} />
+                {/* Fixed-width wrapper: controlClass is w-full, which would otherwise stretch the code over the number box.
+                    India only for now; more countries can be added to this list later. */}
+                <div className="w-28 shrink-0">
+                  <select aria-label="Country code" className={`${controlClass} h-11`} value="+91" onChange={() => undefined}>
+                    <option value="+91">IN +91</option>
+                  </select>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <input id="org-phone" type="tel" inputMode="numeric" autoComplete="tel-national" required maxLength={10}
+                    placeholder="98765 43210" aria-describedby="org-phone-hint" className={`${controlClass} h-11 tabular`}
+                    value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} />
+                </div>
               </div>
               <p id="org-phone-hint" className="mt-1.5 text-xs text-subtle">10-digit Indian mobile number. Only Indian numbers for now.</p>
             </div>
