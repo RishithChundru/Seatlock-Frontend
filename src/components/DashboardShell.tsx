@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ComponentType, ReactNode, Suspense, SVGProps, useEffect, useState } from "react";
 import { api, Organizer } from "@/lib/api";
 import { useDashboardRole } from "@/lib/dashboard";
@@ -10,7 +10,7 @@ import ProfileMenu from "./ProfileMenu";
 import SiteFrame from "./SiteFrame";
 import ThemeToggle from "./ThemeToggle";
 import {
-  GlobeIcon, GridIcon, InboxIcon, ListIcon, MenuIcon, PlusIcon, ScanIcon, SidebarIcon, StoreIcon, UsersIcon, XIcon,
+  GridIcon, InboxIcon, ListIcon, MenuIcon, PlusIcon, ScanIcon, SidebarIcon, StoreIcon, UsersIcon, XIcon,
 } from "./ui/Icons";
 
 type Item = { href: string; label: string; icon: ComponentType<SVGProps<SVGSVGElement>>; badge?: number };
@@ -33,6 +33,7 @@ function Chrome({ children }: { children: ReactNode }) {
 function Sidebar({ children }: { children: ReactNode }) {
   const d = useDashboardRole();
   const path = usePathname();
+  const search = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [pending, setPending] = useState(0);
@@ -44,24 +45,27 @@ function Sidebar({ children }: { children: ReactNode }) {
 
   const groups: Group[] = [
     { title: "General", items: [
-      { href: "/admin", label: "Overview", icon: GridIcon },
-      { href: "/admin/events", label: d.superAdmin ? "All events" : "Events", icon: ListIcon },
+      { href: "/admin", label: "Dashboard", icon: GridIcon },
+      // Super admin: Seatlock's own events and organizers' events are kept apart (different revenue, different gate).
+      ...(d.superAdmin ? [
+        { href: "/admin/events?scope=mine", label: "My events", icon: ListIcon },
+        { href: "/admin/events?scope=organizers", label: "Organizer events", icon: StoreIcon },
+      ] : [{ href: "/admin/events", label: "Events", icon: ListIcon }]),
       ...(d.canCreate ? [{ href: "/admin/events/new", label: "Create event", icon: PlusIcon }] : []),
-      { href: "/", label: "Live site", icon: GlobeIcon },
     ] },
     { title: "Operations", items: [
       ...(d.canScan ? [{ href: "/admin/checkin", label: "Scan tickets", icon: ScanIcon }] : []),
       ...(d.organizer && !d.pendingOrganizer ? [{ href: "/admin/staff", label: "Gate staff", icon: UsersIcon }] : []),
       ...(d.superAdmin ? [{ href: "/admin/organizers", label: "Organizer requests", icon: InboxIcon, badge: pending }] : []),
     ] },
-    { title: "Settings", items: [
-      ...(d.organizer ? [{ href: "/organizer", label: d.pendingOrganizer ? "Application" : "Public profile", icon: StoreIcon }] : []),
-    ] },
   ].filter((g) => g.items.length > 0);
   const all = groups.flatMap((g) => g.items);
-  // The most specific match wins; "/" (the live site) also owns /events/*.
-  const active = all.filter((i) => path === i.href || (i.href === "/" ? path.startsWith("/events/") : path.startsWith(i.href + "/")))
+  // Links with a query match exactly; otherwise the most specific path wins.
+  const full = search.size ? `${path}?${search}` : path;
+  const active = all.filter((i) => i.href.includes("?") ? full.startsWith(i.href) : path === i.href || (i.href !== "/admin" && !search.get("scope") && path.startsWith(i.href + "/")))
     .sort((a, b) => b.href.length - a.href.length)[0];
+  const title = active?.label ?? (path === "/" || path.startsWith("/events/") ? "Live site" : path.startsWith("/account") ? "Account settings"
+    : path.startsWith("/admin/events/") ? "Event bookings" : "Dashboard");
 
   const link = (i: Item, compact: boolean) => {
     const on = i.href === active?.href;
@@ -138,7 +142,7 @@ function Sidebar({ children }: { children: ReactNode }) {
             className="grid h-9 w-9 place-items-center rounded-[var(--radius-sm)] text-muted hover:bg-sunken hover:text-fg lg:hidden">
             <MenuIcon width={20} height={20} />
           </button>
-          <h2 className="truncate font-display text-base font-semibold text-fg">{active?.label ?? "Dashboard"}</h2>
+          <h2 className="truncate font-display text-base font-semibold text-fg">{title}</h2>
           <div className="ml-auto"><ThemeToggle /></div>
         </header>
         <main id="main" className="w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>

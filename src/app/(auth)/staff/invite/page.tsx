@@ -6,6 +6,7 @@ import { api, setSession, User, useSession } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import { Field, PasswordField } from "@/components/ui/Field";
 import { Alert, Skeleton } from "@/components/ui/Feedback";
+import { flash } from "@/components/FlashToast";
 
 type Invite = { name: string; email: string; organizerName: string };
 
@@ -40,6 +41,7 @@ function InviteForm() {
       const res = await api<{ user: User }>("/api/auth/staff-invite/accept", { method: "POST", body: JSON.stringify({ token, name, password }) });
       setPassword("");
       setSession({ user: res.user });
+      flash("Staff account created. You're ready to scan tickets.");
       router.replace("/admin/checkin");
     } catch (err) {
       setError((err as Error).message);

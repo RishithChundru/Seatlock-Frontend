@@ -58,7 +58,7 @@ export default function StaffPage() {
       <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight">Gate staff</h1>
       <p className="mt-2 text-muted">
         Staff scan tickets for your events and can see your dashboard, read-only. Invite an email that isn&apos;t registered on
-        Seatlock yet; they&apos;ll get a link to create their staff account.
+        Seatlock yet. They can use the emailed link, or simply sign up on Seatlock with that email and accept the invite there.
       </p>
 
       <form onSubmit={add} className="mt-8 grid gap-3 rounded-[var(--card-radius)] border border-[var(--card-border)] bg-[var(--card-bg)] p-5 sm:grid-cols-[1fr_1.3fr_auto] sm:items-end">
@@ -79,6 +79,7 @@ export default function StaffPage() {
                 {s.status === "ACTIVE" && <Badge tone="success">Active</Badge>}
                 {s.status === "INVITED" && <Badge tone="warning">Invite sent</Badge>}
                 {s.status === "EXPIRED" && <Badge tone="danger">Invite expired</Badge>}
+                {s.status === "DECLINED" && <Badge tone="danger">Declined</Badge>}
               </p>
               <p className="truncate text-sm text-muted">
                 {s.email}

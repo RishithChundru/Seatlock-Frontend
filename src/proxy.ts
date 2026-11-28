@@ -52,4 +52,4 @@ export async function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/", "/events/:path*", "/me/:path*", "/bookings/:path*", "/account/:path*", "/admin/:path*", "/organizer/:path*"] };
+export const config = { matcher: ["/", "/events/:path*", "/pay", "/payment/complete", "/me/:path*", "/bookings/:path*", "/account/:path*", "/admin/:path*", "/organizer/:path*"] };

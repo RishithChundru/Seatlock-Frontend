@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Suspense } from "react";
+import FlashToast from "@/components/FlashToast";
 import { themeBootScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -25,6 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         {children}
+        <Suspense><FlashToast /></Suspense>
       </body>
     </html>
   );

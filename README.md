@@ -25,7 +25,7 @@ Backend (Spring Boot): [Seatlock-Backend](https://github.com/RishithChundru/Seat
 - **Waitlist:** sold-out events show "Join the waitlist" and your place in line; when someone cancels, the seat appears as yours with a toast and a timer
 - **Cancel bookings** from Tickets until 3 days before the event (with a confirmation dialog); cancelled tickets show as refunded
 - **Share a ticket:** a link to a public page (`/t/<token>`, not indexed) with the QR, for whoever is going instead
-- **Payments with Razorpay Checkout** (test mode): the server creates the order and verifies the signed result before booking; closing the popup keeps your hold, and paying again reopens the same order. With payments off on the API, checkout books instantly
+- **Payments with Razorpay Checkout** (test mode), full page: `/pay` opens Checkout with `callback_url`, Razorpay POSTs the signed result to `/payment/callback`, and `/payment/complete` verifies it with the API and shows the confirmation. Closing or cancelling releases the seats at once. With payments off on the API, checkout books instantly
 - Every checkout sends an `Idempotency-Key`, so a double-click or network retry never books twice
 - Tickets page shows "Issuing…" until the backend's RabbitMQ consumer issues the ticket code, plus your waitlists and any seat held for you
 - **Cookie sessions:** both tokens are httpOnly cookies set by the API, so JavaScript never touches a token. Calls go to same-origin `/api/*`, which Next proxies to the backend; an expired access token is refreshed once (shared by all in-flight requests) and the request retried
@@ -126,13 +126,15 @@ Pages live in three route groups, each with its own layout: `(site)` (public pag
 | `src/app/(dashboard)/me/page.tsx` | Customer overview: stats, spending chart, next ticket, recent bookings |
 | `src/app/(dashboard)/bookings/page.tsx` | Customer tickets: newest first, search, filters (upcoming, checked in, past, cancelled, event cancelled) |
 | `src/app/(dashboard)/admin/page.tsx` | Manager overview: KPIs, weekly sales chart, latest bookings |
-| `src/app/(dashboard)/admin/events/page.tsx` | Events: sales, covers, cancel, search, organizer filter |
-| `src/app/(dashboard)/admin/events/new/page.tsx` | Create event (details, seat map, tiers) |
+| `src/app/(dashboard)/admin/events/page.tsx` | Events: sales, covers, cancel, search. Super admin: `?scope=mine` (Seatlock's own) or `?scope=organizers` |
+| `src/app/(dashboard)/admin/events/[id]/page.tsx` | One event's sales and everyone who booked it |
+| `src/app/(dashboard)/admin/events/new/page.tsx` | Create event: details, seats and tiers, with a live card and seat-map preview |
 | `src/app/(dashboard)/admin/checkin/page.tsx` | Gate check-in by code or QR scan |
 | `src/app/(dashboard)/admin/organizers/page.tsx` | Super admin: review and manage organizers |
 | `src/app/(dashboard)/admin/staff/page.tsx` | Organizer: gate staff and invites |
-| `src/app/(dashboard)/organizer/page.tsx` | Organizer application status and profile |
-| `src/app/(dashboard)/account/page.tsx` | Account settings as a page, for direct links |
+| `src/app/(dashboard)/account/page.tsx` | Account settings for every role: profile photo, organizer profile (organizers), password |
+| `src/app/(site)/pay/page.tsx`, `src/app/payment/*` | Full-page checkout, Razorpay callback, confirmation screen |
+| `src/components/InviteGate.tsx` | An invited customer must accept or decline the gate staff invite before using the app |
 | `src/lib/dashboard.ts` | What each role may see and do in the dashboard |
 | `src/components/DashboardUI.tsx` | Page header, panels, stat cards, status pills, tables |
 | `src/components/Charts.tsx` | Area and bar charts (Recharts), themed with the design tokens |

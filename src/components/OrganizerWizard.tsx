@@ -126,9 +126,9 @@ export default function OrganizerWizard({ signup = false, initial = null, onSave
   const preview = { id: 0, ...organizer(), website: form.website.trim() || null, logoUrl: logoPreview };
 
   return (
-    <div className={signup ? "w-full max-w-xl" : "mx-auto max-w-2xl pt-12"}>
+    <div className={signup ? "w-full max-w-xl" : "w-full"}>
       <p className="eyebrow">For event organizers</p>
-      <h1 className={`mt-2 font-display font-bold tracking-tight ${signup ? "text-3xl" : "text-4xl"}`}>
+      <h1 className={`mt-2 font-display font-bold tracking-tight ${signup ? "text-3xl" : "text-xl"}`}>
         {signup ? "Create an organizer account" : initial?.status === "APPROVED" ? "Edit your organizer profile" : "Edit your application"}
       </h1>
       {signup && (
