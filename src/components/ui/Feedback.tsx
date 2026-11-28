@@ -17,7 +17,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
   return <div aria-hidden className={`animate-pulse rounded-lg bg-sunken ${className}`} />;
 }
 
-/** Toast: bottom-right card (bottom-centre on phones) with a dismiss button; auto-dismisses after 4s. */
+/** Toast: top-centre card with a dismiss button; auto-dismisses after 4s. */
 export function Toast({ message, onDone }: { message: string | null; onDone: () => void }) {
   useEffect(() => {
     if (!message) return;
@@ -28,7 +28,7 @@ export function Toast({ message, onDone }: { message: string | null; onDone: () 
   // shortcut: tone is guessed from the wording; pass it explicitly if callers ever need to override it.
   const bad = !!message && /couldn|can't|failed|error|invalid|not |over |only |no longer|expired|taken|use a /i.test(message);
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4 md:inset-x-auto md:bottom-6 md:right-6 md:justify-end">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
       {message && (
         <div key={message} role="status"
           className="sl-toast pointer-events-auto relative flex w-full max-w-sm items-start gap-3 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface p-4 pr-10 text-sm text-fg shadow-[var(--sl-shadow-lg)]">
