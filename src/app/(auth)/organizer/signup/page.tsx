@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import OrganizerWizard from "@/components/OrganizerWizard";
+import { flash } from "@/components/FlashToast";
 import { useSession } from "@/lib/api";
 
 /** Public: organizer sign-up, separate from customer sign-up. Creates the account and its application together. */
@@ -25,7 +26,7 @@ export default function OrganizerSignupPage() {
 
   return (
     <>
-      <OrganizerWizard signup onSaved={() => router.replace("/organizer")} />
+      <OrganizerWizard signup onSaved={() => { flash("Organizer account created. We'll review it and email you."); router.replace("/admin"); }} />
       <p className="mt-6 w-full max-w-xl text-center text-sm text-muted">
         Already have an organizer account? <Link href="/login?next=/admin" className="font-medium text-accent-fg underline-offset-4 hover:underline">Sign in</Link>
       </p>

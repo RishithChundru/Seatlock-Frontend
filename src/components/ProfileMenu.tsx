@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { signOut, User, useSession } from "@/lib/api";
+import { flash } from "./FlashToast";
 import { initialsOf } from "./HostCard";
 import { ChevronIcon, LogoutIcon, UserIcon } from "./ui/Icons";
 
@@ -13,7 +14,7 @@ export const roleName = (u: User) =>
 /** Sign out and start again from the sign-in page. */
 export function useSignOut() {
   const router = useRouter();
-  return async () => { await signOut(); router.replace("/login"); };
+  return async () => { await signOut(); flash("You've signed out. See you soon!"); router.replace("/login"); };
 }
 
 /** Profile photo, or initials when there's none. */

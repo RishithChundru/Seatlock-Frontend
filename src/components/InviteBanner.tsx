@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, PendingInvite, refreshSession, when } from "@/lib/api";
+import { flash } from "./FlashToast";
 import Button from "./ui/Button";
 import { UsersIcon } from "./ui/Icons";
 
@@ -26,6 +27,7 @@ export default function InviteBanner() {
       await api(`/api/account/invites/${i.id}/${accept ? "accept" : "decline"}`, { method: "POST" });
       if (accept) {
         await refreshSession(); // new access token with the STAFF role
+        flash(`You joined ${i.organizerName} as gate staff.`);
         router.replace("/admin/checkin");
         return;
       }

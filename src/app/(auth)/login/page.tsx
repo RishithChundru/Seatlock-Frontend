@@ -7,6 +7,7 @@ import { api, setSession, User } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import { Field, PasswordField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
+import { flash } from "@/components/FlashToast";
 
 export default function LoginPage() {
   return <Suspense><LoginForm /></Suspense>;
@@ -39,6 +40,8 @@ function LoginForm() {
       const body = mode === "login" ? { email: form.email, password: form.password } : form;
       const res = await api<{ token: string; user: User }>(`/api/auth/${mode}`, { method: "POST", body: JSON.stringify(body) });
       setSession(res);
+      const first = res.user.name.split(" ")[0];
+      flash(mode === "login" ? `Signed in. Welcome back, ${first}!` : `Account created. Welcome to Seatlock, ${first}!`);
       // Next keeps visited pages alive (hidden) during client navigation, so wipe the credentials now,
       // or they'd still be in the form when someone opens sign-in after signing out.
       setForm(EMPTY);
