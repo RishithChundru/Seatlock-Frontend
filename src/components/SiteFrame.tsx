@@ -7,7 +7,7 @@ import { useSession } from "@/lib/api";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import Button from "./ui/Button";
-import InviteBanner from "./InviteBanner";
+import InviteGate from "./InviteGate";
 import ProfileMenu from "./ProfileMenu";
 import { GlobeIcon, GridIcon, TicketIcon } from "./ui/Icons";
 
@@ -57,8 +57,8 @@ export default function SiteFrame({ children }: { children: ReactNode }) {
       </header>
 
       <main id="main" className={`mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 sm:pt-8 ${session ? "pb-28 md:pb-16" : ""}`}>
-        {session?.user.role === "USER" && <InviteBanner />}
-        {children}
+        {/* An invited customer answers the invite before anything else */}
+        {session?.user.role === "USER" ? <InviteGate>{children}</InviteGate> : children}
       </main>
 
       {/* Phones: app-style bottom tabs for signed-in customers */}

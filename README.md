@@ -134,7 +134,7 @@ Pages live in three route groups, each with its own layout: `(site)` (public pag
 | `src/app/(dashboard)/admin/staff/page.tsx` | Organizer: gate staff and invites |
 | `src/app/(dashboard)/account/page.tsx` | Account settings for every role: profile photo, organizer profile (organizers), password |
 | `src/app/(site)/pay/page.tsx`, `src/app/payment/*` | Full-page checkout, Razorpay callback, confirmation screen |
-| `src/components/InviteBanner.tsx` | Customers accept or decline a gate staff invite in the app |
+| `src/components/InviteGate.tsx` | An invited customer must accept or decline the gate staff invite before using the app |
 | `src/lib/dashboard.ts` | What each role may see and do in the dashboard |
 | `src/components/DashboardUI.tsx` | Page header, panels, stat cards, status pills, tables |
 | `src/components/Charts.tsx` | Area and bar charts (Recharts), themed with the design tokens |
