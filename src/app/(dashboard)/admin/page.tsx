@@ -17,14 +17,20 @@ export default function OverviewPage() {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [requests, setRequests] = useState<Organizer[] | null>(null);
   const [metric, setMetric] = useState<"revenue" | "bookings">("revenue");
+  // Super admin: Seatlock's own events (its revenue) and organizers' events (their revenue) are never mixed up.
+  const [scope, setScope] = useState<"own" | "organizers">("own");
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(0); // stamped when data arrives; Date.now() in render breaks prerendering
 
   useEffect(() => {
     if (!d.manager) return;
     api<ManagedEvent[]>("/api/manage/events").then((e) => { setNow(Date.now()); setEvents(e); }).catch((e) => setError((e as Error).message));
-    api<Insights>("/api/manage/insights").then(setInsights).catch(() => setInsights({ weeks: [], recent: [] }));
   }, [d.manager]);
+  useEffect(() => {
+    if (!d.manager) return;
+    setInsights(null); // eslint-disable-line react-hooks/set-state-in-effect -- show the skeleton while the other scope loads
+    api<Insights>(`/api/manage/insights${d.superAdmin ? `?scope=${scope}` : ""}`).then(setInsights).catch(() => setInsights({ weeks: [], recent: [] }));
+  }, [d.manager, d.superAdmin, scope]);
   useEffect(() => {
     if (d.superAdmin) api<Organizer[]>("/api/admin/organizers?status=PENDING").then(setRequests).catch(() => setRequests([]));
   }, [d.superAdmin]);
@@ -38,9 +44,11 @@ export default function OverviewPage() {
   const thisWeek = weeks.at(-1), lastWeek = weeks.at(-2);
   const revenueChange = change(thisWeek?.revenueCents ?? 0, lastWeek?.revenueCents ?? 0);
   const bookingsChange = change(thisWeek?.bookings ?? 0, lastWeek?.bookings ?? 0);
-  const upcoming = (events ?? []).filter((e) => Date.parse(e.event.startsAt) > now)
+  const scoped = (events ?? []).filter((e) => !d.superAdmin || (scope === "own" ? !e.event.host : !!e.event.host));
+  const earned = (own: boolean) => (events ?? []).filter((e) => !e.event.host === own).reduce((t, e) => t + e.revenueCents, 0);
+  const upcoming = scoped.filter((e) => Date.parse(e.event.startsAt) > now)
     .sort((a, b) => Date.parse(a.event.startsAt) - Date.parse(b.event.startsAt));
-  const totals = (events ?? []).reduce((t, e) => ({ bookings: t.bookings + e.bookings, checkedIn: t.checkedIn + e.checkedIn }), { bookings: 0, checkedIn: 0 });
+  const totals = scoped.reduce((t, e) => ({ bookings: t.bookings + e.bookings, checkedIn: t.checkedIn + e.checkedIn }), { bookings: 0, checkedIn: 0 });
   const points = weeks.map((w) => ({
     label: when(w.weekStart + "T00:00:00+05:30", { day: "numeric", month: "short" }),
     hint: `Week of ${when(w.weekStart + "T00:00:00+05:30", { day: "numeric", month: "long" })}`,
@@ -55,14 +63,27 @@ export default function OverviewPage() {
       {d.pendingOrganizer && (
         <div className="mb-6"><Alert tone="warning">
           {d.status === "PENDING" && <><span className="font-medium">Your organizer account is waiting for approval.</span> You can look around; creating events, gate staff and scanning unlock once it&apos;s approved. We&apos;ll email you.</>}
-          {d.status === "REJECTED" && <><span className="font-medium">Your application needs changes.</span> <Link className="underline" href="/organizer">See the note and resubmit</Link>.</>}
+          {d.status === "REJECTED" && <><span className="font-medium">Your application needs changes.</span> <Link className="underline" href="/account#organization">See the note and resubmit</Link>.</>}
           {d.status === "SUSPENDED" && <><span className="font-medium">Your organizer account is suspended.</span> Everything is read-only. Contact Seatlock support.</>}
         </Alert></div>
       )}
       {error && <div className="mb-6"><Alert>{error}</Alert></div>}
 
+      {d.superAdmin && (
+        <div role="group" aria-label="Whose events" className="mb-4 grid gap-3 sm:grid-cols-2">
+          {([["own", "Seatlock events", "Your revenue: events you host yourself"], ["organizers", "Organizer events", "Organizers' sales: their revenue, not yours"]] as const).map(([k, title, note]) => (
+            <button key={k} type="button" aria-pressed={scope === k} onClick={() => setScope(k)}
+              className={`rounded-[var(--card-radius)] border p-4 text-left transition ${scope === k ? "border-[var(--sl-focus)] bg-[var(--card-bg)] shadow-[0_0_0_3px_var(--sl-accent-subtle)]" : "border-[var(--card-border)] bg-[var(--card-bg)] hover:border-line-strong"}`}>
+              <p className="text-sm font-medium text-muted">{title}</p>
+              <p className="mt-1 font-display text-2xl font-bold tabular">{events ? inr(earned(k === "own")) : "…"}</p>
+              <p className="mt-1 text-xs text-subtle">{note} · all time</p>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Revenue this week" icon={RupeeIcon} value={insights ? inr(thisWeek?.revenueCents ?? 0) : null}
+        <StatCard label={d.superAdmin && scope === "organizers" ? "Organizer sales this week" : d.superAdmin ? "Your revenue this week" : "Revenue this week"} icon={RupeeIcon} value={insights ? inr(thisWeek?.revenueCents ?? 0) : null}
           change={insights ? revenueChange.text : undefined} trend={revenueChange.trend} />
         <StatCard label="Bookings this week" icon={TicketIcon} value={insights ? String(thisWeek?.bookings ?? 0) : null}
           change={insights ? bookingsChange.text : undefined} trend={bookingsChange.trend} />
@@ -129,13 +150,13 @@ export default function OverviewPage() {
 
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <ActionCard title="Events" value={events ? `${upcoming.length} upcoming` : null} text={`${events?.length ?? 0} in total`}
-          href="/admin/events" cta="Open events" icon={ListIcon} />
+          href={d.superAdmin ? `/admin/events?scope=${scope === "own" ? "mine" : "organizers"}` : "/admin/events"} cta="Open events" icon={ListIcon} />
         {d.canScan ? (
           <ActionCard title="Gate" value={events ? `${totals.checkedIn} checked in` : null} text="Scan QR codes at the entrance"
             href="/admin/checkin" cta="Open scanner" icon={ScanIcon} />
         ) : (
           <ActionCard title="Application" value={d.status ? d.status.toLowerCase().replace(/^./, (c) => c.toUpperCase()) : null}
-            text="Your organizer review" href="/organizer" cta="View status" icon={InboxIcon} />
+            text="Your organizer review" href="/account#organization" cta="View status" icon={InboxIcon} />
         )}
         {d.superAdmin ? (
           <ActionCard title="Organizers" value={requests ? `${requests.length} waiting` : null} text="Approve or request changes"

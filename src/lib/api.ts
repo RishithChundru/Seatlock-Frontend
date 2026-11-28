@@ -9,7 +9,7 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080
 /** ADMIN = super admin (every event). ORGANIZER = their own events. STAFF = scanner for one organizer. */
 export type Role = "USER" | "ADMIN" | "ORGANIZER" | "STAFF";
 /** organizerStatus: for organizer accounts only. Anything but APPROVED means a read-only dashboard. */
-export type User = { id: number; email: string; name: string; role: Role; organizerStatus?: OrganizerStatus | null };
+export type User = { id: number; email: string; name: string; role: Role; organizerStatus?: OrganizerStatus | null; avatarUrl?: string | null };
 /** The organizer's public profile, shown on their events. null = hosted by Seatlock. */
 export type Host = {
   id: number; name: string; about: string; city: string; contactEmail: string; contactPhone: string; website: string | null;
@@ -21,7 +21,7 @@ export type Organizer = Host & {
   accountName: string; accountEmail: string;
 };
 /** ACTIVE: id is the staff account's. INVITED / EXPIRED: id is the invite's (resend or cancel it). */
-export type StaffMember = { id: number; name: string; email: string; status: "ACTIVE" | "INVITED" | "EXPIRED"; inviteExpiresAt: string | null };
+export type StaffMember = { id: number; name: string; email: string; status: "ACTIVE" | "INVITED" | "EXPIRED" | "DECLINED"; inviteExpiresAt: string | null };
 export type Tier = "VIP" | "PREMIUM" | "STANDARD";
 export type EventItem = {
   id: number; title: string; venue: string; category: string; startsAt: string;
@@ -161,6 +161,13 @@ export type Insights = {
 };
 
 /** Dashboard row: the event plus its sales (confirmed bookings). */
+/** Who booked an event (organizer and super admin view). No ticket codes. */
+export type Attendee = {
+  id: number; name: string; email: string; seats: string[]; totalCents: number; status: "CONFIRMED" | "CANCELLED";
+  createdAt: string; checkedInAt: string | null;
+};
+/** A gate staff invite the signed-in customer can accept or decline. */
+export type PendingInvite = { id: number; organizerName: string; expiresAt: string };
 export type ManagedEvent = { event: EventItem; bookings: number; revenueCents: number; checkedIn: number };
 
 /**

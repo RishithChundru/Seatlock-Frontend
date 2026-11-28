@@ -37,9 +37,11 @@ export default function CheckInPage() {
 
   useEffect(() => {
     if (!allowed) return;
-    // Only events this scanner may admit: all (super admin), own (organizer), employer's (staff).
-    api<ManagedEvent[]>("/api/manage/events").then((rows) => setEvents(rows.map((r) => r.event))).catch(() => setEvents([]));
-  }, [allowed]);
+    // Only events this scanner may admit: Seatlock's own (super admin), own (organizer), employer's (staff).
+    api<ManagedEvent[]>("/api/manage/events")
+      .then((rows) => setEvents(rows.map((r) => r.event).filter((e) => role !== "ADMIN" || !e.host)))
+      .catch(() => setEvents([]));
+  }, [allowed, role]);
 
   const checkIn = useCallback(async (raw: string) => {
     const value = raw.trim();

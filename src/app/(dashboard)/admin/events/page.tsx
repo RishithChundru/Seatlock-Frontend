@@ -21,7 +21,10 @@ export default function EventsPage() {
 
 function EventsView() {
   const d = useDashboardRole();
-  const created = useSearchParams().get("created");
+  const params = useSearchParams();
+  const created = params.get("created");
+  // Super admin: "mine" = events Seatlock hosts itself, "organizers" = everyone else's.
+  const scope = d.superAdmin ? params.get("scope") : null;
   const [events, setEvents] = useState<ManagedEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(created ? `Created “${created}”. Add a cover photo to make it stand out.` : null);
@@ -79,9 +82,10 @@ function EventsView() {
     }
   };
 
-  const hosts = [...new Set((events ?? []).map((e) => e.event.host?.name ?? "Seatlock"))].sort();
+  const hosts = [...new Set((events ?? []).filter((e) => e.event.host).map((e) => e.event.host!.name))].sort();
   const q = query.trim().toLowerCase();
-  const shown = (events ?? []).filter(({ event: ev }) =>
+  const inScope = (events ?? []).filter(({ event: ev }) => scope === "mine" ? !ev.host : scope === "organizers" ? !!ev.host : true);
+  const shown = inScope.filter(({ event: ev }) =>
     (host === "all" || (ev.host?.name ?? "Seatlock") === host)
     && (!q || `${ev.title} ${ev.venue} ${ev.category}`.toLowerCase().includes(q)));
 
@@ -90,14 +94,18 @@ function EventsView() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">{d.readOnly ? "Events · read-only" : "Events"}</p>
-          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">{d.superAdmin ? "All events" : d.staff ? "Events you work at" : "Your events"}</h1>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            {scope === "mine" ? "My events" : scope === "organizers" ? "Organizer events" : d.superAdmin ? "All events" : d.staff ? "Events you work at" : "Your events"}
+          </h1>
+          {scope === "mine" && <p className="mt-1 text-sm text-muted">Events Seatlock hosts itself. Their revenue is yours, and you scan them at the gate.</p>}
+          {scope === "organizers" && <p className="mt-1 text-sm text-muted">Hosted by approved organizers. Their gate staff scan these tickets.</p>}
         </div>
-        {d.canCreate && <Button href="/admin/events/new"><PlusIcon /> Create event</Button>}
+        {d.canCreate && scope !== "organizers" && <Button href="/admin/events/new"><PlusIcon /> Create event</Button>}
       </div>
 
-      <div className={`mt-6 grid gap-3 ${d.superAdmin ? "sm:grid-cols-[1fr_220px]" : ""}`}>
+      <div className={`mt-6 grid gap-3 ${scope === "organizers" ? "sm:grid-cols-[1fr_220px]" : ""}`}>
         <Field label="Search" placeholder="Title, venue or category" value={query} onChange={(e) => setQuery(e.target.value)} />
-        {d.superAdmin && (
+        {scope === "organizers" && (
           <SelectField label="Organizer" value={host} onChange={(e) => setHost(e.target.value)}>
             <option value="all">All organizers</option>
             {hosts.map((h) => <option key={h}>{h}</option>)}
@@ -111,8 +119,8 @@ function EventsView() {
         {events === null && [0, 1, 2].map((i) => <li key={i} className="p-4"><Skeleton className="h-16" /></li>)}
         {events !== null && shown.length === 0 && (
           <li className="p-10 text-center text-sm text-muted">
-            {events.length === 0
-              ? (d.canCreate ? <>No events yet. <Link href="/admin/events/new" className="font-medium text-accent-fg hover:underline">Create your first one</Link>.</> : "No events yet.")
+            {inScope.length === 0
+              ? (d.canCreate && scope !== "organizers" ? <>No events yet. <Link href="/admin/events/new" className="font-medium text-accent-fg hover:underline">Create your first one</Link>.</> : "No events yet.")
               : "No events match your search."}
           </li>
         )}
@@ -125,14 +133,17 @@ function EventsView() {
                 <Link href={`/events/${ev.id}`} className="block truncate font-medium hover:text-accent-fg">{ev.title}</Link>
                 <p className="truncate text-sm text-muted tabular">
                   {when(ev.startsAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} · {ev.venue}
-                  {d.superAdmin && <> · <span className="text-fg">{ev.host?.name ?? "Seatlock"}</span></>}
+                  {d.superAdmin && scope !== "mine" && <> · <span className="text-fg">{ev.host?.name ?? "Seatlock"}</span></>}
                 </p>
                 <p className="mt-0.5 truncate text-sm text-muted tabular">
                   {sold}/{ev.totalSeats} sold · {sales.bookings} booking{sales.bookings === 1 ? "" : "s"} · {inr(sales.revenueCents)} · {sales.checkedIn} checked in
                 </p>
               </div>
+              <div className="flex flex-wrap items-center gap-1">
+                <Button href={`/admin/events/${ev.id}`} variant="secondary" size="sm">Bookings</Button>
+                <Button href={`/events/${ev.id}`} variant="ghost" size="sm">View page</Button>
               {!d.readOnly && (
-                <div className="flex items-center gap-1">
+                <>
                   <label className={buttonClass("secondary", "sm", `cursor-pointer ${uploading === ev.id ? "pointer-events-none opacity-50" : ""}`)}>
                     <UploadIcon /> {uploading === ev.id ? "Uploading…" : ev.imageUrl ? "Replace cover" : "Add cover"}
                     <input type="file" accept={ACCEPT} className="sr-only" aria-label={`Upload cover for ${ev.title}`}
@@ -142,8 +153,9 @@ function EventsView() {
                     <Button variant="ghost" size="sm" onClick={() => removeCover(ev)} aria-label={`Remove cover from ${ev.title}`}><XIcon /></Button>
                   )}
                   <Button variant="ghost" size="sm" className="text-danger hover:text-danger" onClick={() => setDeleting(ev)}>Cancel event</Button>
-                </div>
+                </>
               )}
+              </div>
             </li>
           );
         })}
@@ -155,14 +167,14 @@ function EventsView() {
         className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-[var(--card-radius)] border border-line bg-surface p-0 text-fg shadow-lg">
         {deleting && (
           <div className="p-7">
-            <h2 id="delete-title" className="font-display text-2xl font-bold">Cancel and delete this event?</h2>
+            <h2 id="delete-title" className="font-display text-2xl font-bold">Cancel this event?</h2>
             <p className="mt-3 text-muted">
-              &ldquo;{deleting.title}&rdquo; and its seat map, cover and waitlist are removed for good. Everyone with tickets is cancelled,
-              refunded in full and emailed.
+              &ldquo;{deleting.title}&rdquo; comes off sale for good. Everyone with tickets is cancelled, refunded in full and emailed,
+              and sees it as &ldquo;Event cancelled&rdquo; in their tickets.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <Button variant="secondary" onClick={() => dialog.current?.close()}>Keep event</Button>
-              <Button onClick={confirmDelete}>Cancel &amp; delete</Button>
+              <Button onClick={confirmDelete}>Cancel event</Button>
             </div>
           </div>
         )}

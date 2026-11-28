@@ -7,6 +7,7 @@ import { useSession } from "@/lib/api";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import Button from "./ui/Button";
+import InviteBanner from "./InviteBanner";
 import ProfileMenu from "./ProfileMenu";
 import { GlobeIcon, GridIcon, TicketIcon } from "./ui/Icons";
 
@@ -14,7 +15,7 @@ type Tab = { href: string; label: string; icon: ComponentType<SVGProps<SVGSVGEle
 const TABS: Tab[] = [
   { href: "/", label: "Events", icon: GlobeIcon },
   { href: "/bookings", label: "My tickets", icon: TicketIcon },
-  { href: "/me", label: "Overview", icon: GridIcon },
+  { href: "/me", label: "Dashboard", icon: GridIcon },
 ];
 const isOn = (href: string, path: string) => href === "/" ? path === "/" || path.startsWith("/events/") : path === href || path.startsWith(href + "/");
 
@@ -55,7 +56,10 @@ export default function SiteFrame({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main id="main" className={`mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 sm:pt-8 ${session ? "pb-28 md:pb-16" : ""}`}>{children}</main>
+      <main id="main" className={`mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 sm:pt-8 ${session ? "pb-28 md:pb-16" : ""}`}>
+        {session?.user.role === "USER" && <InviteBanner />}
+        {children}
+      </main>
 
       {/* Phones: app-style bottom tabs for signed-in customers */}
       {session && (
